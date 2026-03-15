@@ -1,7 +1,9 @@
 .PHONY: build proto lint test mock clean fmt
 
+export GOEXPERIMENT := runtimesecret
+
 build:
-	GOEXPERIMENT=runtimesecret go build -o bin/sekeve ./cmd/sekeve
+	go build -o bin/sekeve ./cmd/sekeve
 
 proto:
 	cd proto && buf generate
@@ -10,7 +12,7 @@ lint:
 	golangci-lint run ./...
 
 test:
-	GOEXPERIMENT=runtimesecret go test ./...
+	go test ./...
 
 mock:
 	mockery

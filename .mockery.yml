@@ -1,10 +1,10 @@
 all: false
-dir: "{{.InterfaceDir}}"
-filename: mocks_test.go
+dir: "internal/domain/port/mocks"
+filename: "mock_{{.InterfaceName | snakecase}}.go"
 formatter: goimports
 log-level: info
 structname: "Mock{{.InterfaceName}}"
-pkgname: "{{.SrcPackageName}}"
+pkgname: "mocks"
 packages:
   github.com/bnema/sekeve/internal/domain/port:
     interfaces:
