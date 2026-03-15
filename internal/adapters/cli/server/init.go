@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	adaptercrypto "github.com/bnema/sekeve/internal/adapters/crypto"
 	"github.com/bnema/sekeve/internal/adapters/storage"
@@ -11,24 +10,32 @@ import (
 )
 
 func NewInitCmd() *cobra.Command {
-	var gpgKeyID string
+	var pubKeyFile string
 	var dataPath string
 
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Initialize the server with a GPG key",
+		Short: "Initialize the server with a client public key",
+		Long: `Initialize the server by registering an armored GPG public key.
+
+The key can be provided via:
+  --pubkey-file <path>    Read from a file
+  stdin pipe              cat key.asc | sekeve server init
+  interactive paste       Launches a TUI when no other input is given`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			log := zerowrap.FromCtx(ctx)
 
-			if gpgKeyID == "" {
-				return fmt.Errorf("--gpg-key is required")
+			rawKey, source, err := readPublicKeyInput(cmd, pubKeyFile)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to read public key")
+				return err
 			}
 
 			gpg := adaptercrypto.NewGPGAdapter()
-			pubKey, err := gpg.ExportPublicKey(ctx, gpgKeyID)
+			pubKey, err := gpg.ValidateArmoredPublicKey(ctx, rawKey)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to export GPG public key")
+				log.Error().Err(err).Msg("invalid public key")
 				return err
 			}
 
@@ -48,15 +55,40 @@ func NewInitCmd() *cobra.Command {
 				return err
 			}
 
-			log.Info().Str("key_id", gpgKeyID).Msg("GPG key registered successfully")
+			log.Info().Str("source", source).Msg("GPG public key registered successfully")
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&gpgKeyID, "gpg-key", "", "GPG key ID to register (required)")
+	cmd.Flags().StringVar(&pubKeyFile, "pubkey-file", "", "Path to armored GPG public key file")
 	cmd.Flags().StringVar(&dataPath, "data", "./sekeve.db", "Path to bbolt database")
-	if err := cmd.MarkFlagRequired("gpg-key"); err != nil {
-		panic(fmt.Sprintf("failed to mark gpg-key flag as required: %v", err))
-	}
 	return cmd
+}
+
+// collectAndStoreKey runs the key collection and validation flow, then stores it.
+// Used by both `server init` and `server start` (first-run onboarding).
+func collectAndStoreKey(cmd *cobra.Command, store *storage.BboltStore, pubKeyFile string) error {
+	ctx := cmd.Context()
+	log := zerowrap.FromCtx(ctx)
+
+	rawKey, source, err := readPublicKeyInput(cmd, pubKeyFile)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to read public key")
+		return err
+	}
+
+	gpg := adaptercrypto.NewGPGAdapter()
+	pubKey, err := gpg.ValidateArmoredPublicKey(ctx, rawKey)
+	if err != nil {
+		log.Error().Err(err).Msg("invalid public key")
+		return err
+	}
+
+	if err := store.StoreAuthKey(ctx, pubKey); err != nil {
+		log.Error().Err(err).Msg("failed to store auth key")
+		return err
+	}
+
+	log.Info().Str("source", source).Msg("GPG public key registered successfully")
+	return nil
 }

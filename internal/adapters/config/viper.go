@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -21,10 +22,13 @@ type ViperConfig struct {
 	cfgDir string
 }
 
-func NewViperConfig(ctx context.Context) (*ViperConfig, error) {
+func NewViperConfig(ctx context.Context, xdg port.XDGPort) (*ViperConfig, error) {
 	log := zerowrap.FromCtx(ctx)
 
-	dir := resolveConfigDir()
+	dir, err := xdg.ConfigDir()
+	if err != nil {
+		return nil, log.WrapErr(err, "failed to resolve config directory")
+	}
 
 	v := viper.New()
 	v.SetConfigName("config")
@@ -102,14 +106,37 @@ func (c *ViperConfig) SetOverride(key, value string) {
 	c.v.Set(key, value)
 }
 
-func resolveConfigDir() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		home, homeErr := os.UserHomeDir()
-		if homeErr != nil {
-			return ".sekeve"
-		}
-		return filepath.Join(home, ".config", "sekeve")
+// IsUnconfigured returns true when no config file exists and gpg_key_id
+// is still the empty default - meaning the user has never set up the client.
+func (c *ViperConfig) IsUnconfigured() bool {
+	return c.v.GetString("gpg_key_id") == "" && c.v.ConfigFileUsed() == ""
+}
+
+// WriteConfig creates the config directory and writes a config.toml with
+// the given server address and GPG key ID.
+func (c *ViperConfig) WriteConfig(serverAddr, gpgKeyID string) error {
+	if err := os.MkdirAll(c.cfgDir, 0700); err != nil {
+		return fmt.Errorf("failed to create config dir: %w", err)
 	}
-	return filepath.Join(dir, "sekeve")
+
+	// Update in-memory config so the current session uses the new values.
+	c.v.Set("server_addr", serverAddr)
+	c.v.Set("gpg_key_id", gpgKeyID)
+
+	path := filepath.Join(c.cfgDir, "config.toml")
+	if err := c.v.WriteConfigAs(path); err != nil {
+		return fmt.Errorf("failed to write config: %w", err)
+	}
+
+	// Ensure restrictive permissions.
+	if err := os.Chmod(path, 0600); err != nil {
+		return fmt.Errorf("failed to set config permissions: %w", err)
+	}
+
+	return nil
+}
+
+// ConfigPath returns the path to the config file.
+func (c *ViperConfig) ConfigPath() string {
+	return filepath.Join(c.cfgDir, "config.toml")
 }

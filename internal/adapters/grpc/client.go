@@ -10,6 +10,7 @@ import (
 	"github.com/bnema/zerowrap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 
 	sekevev1 "github.com/bnema/sekeve/gen/proto/sekeve/v1"
@@ -143,6 +144,19 @@ func (c *Client) Close(ctx context.Context) error {
 	log := zerowrap.FromCtx(ctx)
 	if err := c.conn.Close(); err != nil {
 		return log.WrapErr(err, "failed to close gRPC connection")
+	}
+	return nil
+}
+
+// CheckHealth calls the gRPC health check service to verify the server is reachable.
+func (c *Client) CheckHealth(ctx context.Context) error {
+	healthClient := grpc_health_v1.NewHealthClient(c.conn)
+	resp, err := healthClient.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
+	if err != nil {
+		return fmt.Errorf("server health check failed: %w", err)
+	}
+	if resp.Status != grpc_health_v1.HealthCheckResponse_SERVING {
+		return fmt.Errorf("server not serving (status: %s)", resp.Status)
 	}
 	return nil
 }

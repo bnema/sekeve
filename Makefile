@@ -1,4 +1,4 @@
-.PHONY: build proto lint test mock clean fmt
+.PHONY: build install proto lint test mock clean fmt
 
 export GOEXPERIMENT := runtimesecret
 
@@ -7,6 +7,9 @@ LDFLAGS := -X github.com/bnema/sekeve/internal/version.Version=$(VERSION)
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/sekeve ./cmd/sekeve
+
+install:
+	go install -ldflags "$(LDFLAGS)" ./cmd/sekeve
 
 proto:
 	cd proto && buf generate

@@ -16,6 +16,8 @@ import (
 	"github.com/bnema/zerowrap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
 
@@ -41,6 +43,11 @@ func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager)
 		grpc.UnaryInterceptor(auth.UnaryInterceptor()),
 	)
 	sekevev1.RegisterSekeveServer(s.grpcServer, s)
+
+	// Register gRPC health service.
+	healthSrv := health.NewServer()
+	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	grpc_health_v1.RegisterHealthServer(s.grpcServer, healthSrv)
 
 	return s
 }

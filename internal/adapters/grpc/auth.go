@@ -139,6 +139,7 @@ func (a *AuthManager) validateToken(token string) bool {
 var skipAuthMethods = map[string]bool{
 	"/sekeve.v1.Sekeve/Authenticate":    true,
 	"/sekeve.v1.Sekeve/VerifyChallenge": true,
+	"/grpc.health.v1.Health/Check":      true,
 }
 
 // UnaryInterceptor returns a gRPC unary server interceptor that enforces token auth.

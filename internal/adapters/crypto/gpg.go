@@ -3,6 +3,8 @@ package crypto
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"os"
 	"os/exec"
 	"runtime/secret"
 
@@ -89,4 +91,56 @@ func (a *GPGAdapter) ExportPublicKey(ctx context.Context, keyID string) ([]byte,
 	}
 
 	return stdout.Bytes(), nil
+}
+
+// ValidateArmoredPublicKey validates that the provided bytes are a valid
+// armored GPG public key. It uses a temporary GNUPGHOME to avoid polluting
+// any keyring. Returns the normalized (trimmed + trailing newline) key bytes.
+func (a *GPGAdapter) ValidateArmoredPublicKey(ctx context.Context, armored []byte) ([]byte, error) {
+	log := zerowrap.FromCtx(ctx)
+
+	trimmed := bytes.TrimSpace(armored)
+	if len(trimmed) == 0 {
+		return nil, fmt.Errorf("public key is empty")
+	}
+
+	// Quick pre-check for PGP armor markers.
+	if !bytes.Contains(trimmed, []byte("-----BEGIN PGP PUBLIC KEY BLOCK-----")) ||
+		!bytes.Contains(trimmed, []byte("-----END PGP PUBLIC KEY BLOCK-----")) {
+		return nil, fmt.Errorf("input does not look like an armored GPG public key")
+	}
+
+	// Validate using GPG in an isolated temp homedir.
+	tmpDir, err := os.MkdirTemp("", "sekeve-gpg-validate-*")
+	if err != nil {
+		return nil, log.WrapErr(err, "failed to create temp dir for key validation")
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cmd := exec.CommandContext(ctx, "gpg",
+		"--batch", "--quiet",
+		"--homedir", tmpDir,
+		"--no-autostart",
+		"--with-colons",
+		"--import-options", "show-only",
+		"--import",
+	)
+	cmd.Stdin = bytes.NewReader(trimmed)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, log.WrapErrf(err, "gpg key validation failed: %s", stderr.String())
+	}
+
+	// Verify at least one public key record exists in the output.
+	if !bytes.Contains(stdout.Bytes(), []byte("pub:")) {
+		return nil, fmt.Errorf("no public key found in the provided input")
+	}
+
+	// Normalize: trim whitespace, ensure trailing newline.
+	normalized := append(trimmed, '\n')
+	return normalized, nil
 }

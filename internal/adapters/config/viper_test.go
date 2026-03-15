@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/bnema/sekeve/internal/adapters/config"
+	"github.com/bnema/sekeve/internal/adapters/xdg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +17,7 @@ func TestViperConfig_Defaults(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	ctx := context.Background()
 
-	cfg, err := config.NewViperConfig(ctx)
+	cfg, err := config.NewViperConfig(ctx, xdg.NewAdapter("sekeve"))
 	require.NoError(t, err)
 
 	assert.Equal(t, "localhost:50051", cfg.ServerAddr(ctx))
@@ -36,7 +37,7 @@ gpg_key_id = "alice@example.com"
 	t.Setenv("XDG_CONFIG_HOME", tmpDir)
 	ctx := context.Background()
 
-	cfg, err := config.NewViperConfig(ctx)
+	cfg, err := config.NewViperConfig(ctx, xdg.NewAdapter("sekeve"))
 	require.NoError(t, err)
 
 	assert.Equal(t, "remote.example.com:9090", cfg.ServerAddr(ctx))
@@ -49,7 +50,7 @@ func TestViperConfig_EnvVarOverride(t *testing.T) {
 	t.Setenv("SEKEVE_GPG_KEY_ID", "bob@example.com")
 	ctx := context.Background()
 
-	cfg, err := config.NewViperConfig(ctx)
+	cfg, err := config.NewViperConfig(ctx, xdg.NewAdapter("sekeve"))
 	require.NoError(t, err)
 
 	assert.Equal(t, "env.example.com:1234", cfg.ServerAddr(ctx))
@@ -60,7 +61,7 @@ func TestViperConfig_SetOverride(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	ctx := context.Background()
 
-	cfg, err := config.NewViperConfig(ctx)
+	cfg, err := config.NewViperConfig(ctx, xdg.NewAdapter("sekeve"))
 	require.NoError(t, err)
 
 	cfg.SetOverride("server_addr", "override.example.com:5555")
@@ -75,7 +76,7 @@ func TestViperConfig_SessionTokenRoundTrip(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "sekeve"), 0700))
 
 	ctx := context.Background()
-	cfg, err := config.NewViperConfig(ctx)
+	cfg, err := config.NewViperConfig(ctx, xdg.NewAdapter("sekeve"))
 	require.NoError(t, err)
 
 	// No session yet
@@ -97,7 +98,7 @@ func TestViperConfig_SessionTokenExpired(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "sekeve"), 0700))
 
 	ctx := context.Background()
-	cfg, err := config.NewViperConfig(ctx)
+	cfg, err := config.NewViperConfig(ctx, xdg.NewAdapter("sekeve"))
 	require.NoError(t, err)
 
 	// Save with 0 TTL (already expired)

@@ -14,4 +14,6 @@ type ConfigPort interface {
 	// SaveSessionToken persists a session token. ttl is the duration in seconds
 	// until expiry.
 	SaveSessionToken(ctx context.Context, token string, ttl int64) error
+	// IsUnconfigured returns true when no configuration has been set up.
+	IsUnconfigured() bool
 }

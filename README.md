@@ -1,4 +1,4 @@
-# sekeve
+# Sekeve
 
 A CLI secret manager. Secrets are encrypted locally with your GPG key and stored on a remote gRPC server. The server only sees encrypted blobs. Your private key never leaves your machine.
 

@@ -88,6 +88,12 @@ func (_c *MockConfigPort_GPGKeyID_Call) RunAndReturn(run func(ctx context.Contex
 	return _c
 }
 
+// IsUnconfigured provides a mock function for the type MockConfigPort
+func (m *MockConfigPort) IsUnconfigured() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
 // SaveSessionToken provides a mock function for the type MockConfigPort
 func (_mock *MockConfigPort) SaveSessionToken(ctx context.Context, token string, ttl int64) error {
 	ret := _mock.Called(ctx, token, ttl)

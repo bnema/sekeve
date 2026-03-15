@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	grpcadapter "github.com/bnema/sekeve/internal/adapters/grpc"
 	"github.com/bnema/sekeve/internal/adapters/storage"
@@ -36,10 +37,9 @@ func NewStartCmd() *cobra.Command {
 			pubKey, err := store.GetAuthKey(ctx)
 			if err != nil {
 				if errors.Is(err, port.ErrNotFound) {
-					log.Error().Msg("no GPG key registered; run 'sekeve server init' first")
-				} else {
-					log.Error().Err(err).Msg("failed to load auth key")
+					return fmt.Errorf("no public key registered; run 'sekeve server init' first")
 				}
+				log.Error().Err(err).Msg("failed to load auth key")
 				return err
 			}
 

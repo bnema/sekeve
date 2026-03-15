@@ -4,6 +4,7 @@ package cliconfig
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/sekeve/internal/app"
 	"github.com/bnema/sekeve/internal/port"
@@ -39,6 +40,11 @@ func WithConfig(ctx context.Context, cfg port.ConfigPort) context.Context {
 
 func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, error) {
 	log := zerowrap.FromCtx(ctx)
+
+	// Check if client needs onboarding.
+	if cfg.IsUnconfigured() {
+		return nil, fmt.Errorf("client not configured; run 'sekeve init' first")
+	}
 
 	clientApp, err := app.NewClientApp(ctx, cfg)
 	if err != nil {

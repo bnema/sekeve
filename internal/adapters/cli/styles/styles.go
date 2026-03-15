@@ -11,13 +11,23 @@ import (
 	"github.com/bnema/sekeve/internal/domain/entity"
 )
 
+// Nerd Font icons.
+const (
+	IconSuccess = "\uf00c" // nf-fa-check
+	IconError   = "\uf00d" // nf-fa-close
+	IconWarning = "\uf071" // nf-fa-exclamation_triangle
+	IconInfo    = "\uf05a" // nf-fa-info_circle
+)
+
 var (
-	ColorPrimary   = lipgloss.Color("99")
-	ColorSuccess   = lipgloss.Color("82")
-	ColorError     = lipgloss.Color("196")
-	ColorWarning   = lipgloss.Color("214")
-	ColorMuted     = lipgloss.Color("245")
-	ColorHighlight = lipgloss.Color("212")
+	ColorPrimary   = lipgloss.Color("67")  // Steel blue
+	ColorSecondary = lipgloss.Color("109") // Slate
+	ColorAccent    = lipgloss.Color("179") // Amber
+	ColorSuccess   = lipgloss.Color("71")  // Sage green
+	ColorError     = lipgloss.Color("167") // Rust red
+	ColorWarning   = lipgloss.Color("178") // Dull gold
+	ColorMuted     = lipgloss.Color("243") // Dim gray
+	ColorHighlight = lipgloss.Color("152") // Pale cyan
 
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -36,14 +46,15 @@ var (
 
 	LabelStyle = lipgloss.NewStyle().
 			Bold(true).
-			Width(12)
+			Width(12).
+			Foreground(ColorSecondary)
 
 	ValueStyle = lipgloss.NewStyle().
 			Foreground(ColorHighlight)
 )
 
 func RenderError(w io.Writer, err error) error {
-	if _, werr := lipgloss.Fprint(w, ErrorStyle.Render("Error: "+err.Error())); werr != nil {
+	if _, werr := lipgloss.Fprint(w, ErrorStyle.Render(IconError+" "+err.Error())); werr != nil {
 		return werr
 	}
 	if _, werr := fmt.Fprintln(w); werr != nil {
@@ -53,7 +64,7 @@ func RenderError(w io.Writer, err error) error {
 }
 
 func RenderSuccess(w io.Writer, msg string) error {
-	if _, werr := lipgloss.Fprint(w, SuccessStyle.Render("✓ "+msg)); werr != nil {
+	if _, werr := lipgloss.Fprint(w, SuccessStyle.Render(IconSuccess+" "+msg)); werr != nil {
 		return werr
 	}
 	if _, werr := fmt.Fprintln(w); werr != nil {
