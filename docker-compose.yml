@@ -1,0 +1,11 @@
+services:
+  sekeve-server:
+    build: .
+    command: ["server", "start", "--data", "/data/sekeve.db", "--addr", ":50051"]
+    ports:
+      - "50051:50051"
+    volumes:
+      - sekeve-data:/data
+
+volumes:
+  sekeve-data:
