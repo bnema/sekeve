@@ -1,0 +1,13 @@
+all: false
+dir: "{{.InterfaceDir}}"
+filename: mocks_test.go
+formatter: goimports
+log-level: info
+structname: "Mock{{.InterfaceName}}"
+pkgname: "{{.SrcPackageName}}"
+packages:
+  github.com/bnema/sekeve/internal/domain/port:
+    interfaces:
+      StoragePort:
+      CryptoPort:
+      SyncPort:
