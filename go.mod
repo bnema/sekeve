@@ -4,7 +4,9 @@ go 1.26.1
 
 require (
 	github.com/bnema/zerowrap v1.3.0
+	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.11.1
+	go.etcd.io/bbolt v1.4.3
 	google.golang.org/grpc v1.79.2
 	google.golang.org/protobuf v1.36.11
 )
