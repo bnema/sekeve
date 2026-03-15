@@ -1,0 +1,79 @@
+syntax = "proto3";
+package sekeve.v1;
+option go_package = "github.com/bnema/sekeve/gen/proto/sekeve/v1;sekevev1";
+
+enum EntryType {
+  ENTRY_TYPE_UNSPECIFIED = 0;
+  ENTRY_TYPE_LOGIN = 1;
+  ENTRY_TYPE_SECRET = 2;
+  ENTRY_TYPE_NOTE = 3;
+}
+
+service Sekeve {
+  rpc Authenticate(AuthRequest) returns (AuthChallenge);
+  rpc VerifyChallenge(ChallengeResponse) returns (SessionToken);
+  rpc CreateEntry(CreateEntryRequest) returns (CreateEntryResponse);
+  rpc UpdateEntry(UpdateEntryRequest) returns (UpdateEntryResponse);
+  rpc GetEntry(GetEntryRequest) returns (Entry);
+  rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse);
+  rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
+}
+
+message AuthRequest {
+  string gpg_key_id = 1;
+}
+
+message AuthChallenge {
+  bytes encrypted_challenge = 1;
+}
+
+message ChallengeResponse {
+  string nonce = 1;
+}
+
+message SessionToken {
+  string token = 1;
+  int64 expires_at = 2;
+}
+
+message Entry {
+  string id = 1;
+  string name = 2;
+  EntryType type = 3;
+  map<string, string> meta = 4;
+  bytes payload = 5;
+  int64 created_at = 6;
+  int64 updated_at = 7;
+}
+
+message CreateEntryRequest {
+  Entry entry = 1;
+}
+
+message CreateEntryResponse {
+  string id = 1;
+}
+
+message UpdateEntryRequest {
+  Entry entry = 1;
+}
+
+message UpdateEntryResponse {}
+
+message GetEntryRequest {
+  string name = 1;
+}
+
+message ListEntriesRequest {
+  EntryType type = 1;
+}
+
+message ListEntriesResponse {
+  repeated Entry entries = 1;
+}
+
+message DeleteEntryRequest {
+  string name = 1;
+}
+
+message DeleteEntryResponse {}
