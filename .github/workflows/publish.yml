@@ -1,0 +1,21 @@
+name: Publish
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  ghcr:
+    name: Push to GHCR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: bnema/gh-actions/actions/docker-deploy@main
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          image: sekeve
+          platforms: linux/amd64,linux/arm64
