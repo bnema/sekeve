@@ -5,18 +5,22 @@ import (
 	"os"
 	"os/signal"
 
+	"fmt"
+
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/cli/client"
 	"github.com/bnema/sekeve/internal/adapters/cli/server"
 	adapterconfig "github.com/bnema/sekeve/internal/adapters/config"
 	logadapter "github.com/bnema/sekeve/internal/adapters/logger"
+	"github.com/bnema/sekeve/internal/version"
 	"github.com/spf13/cobra"
 )
 
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "sekeve",
-		Short: "CLI secret manager with GPG encryption",
+		Use:     "sekeve",
+		Short:   "CLI secret manager with GPG encryption",
+		Version: version.Version,
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt)
 			_, ctx = logadapter.New(ctx)
@@ -44,6 +48,16 @@ func NewRootCmd() *cobra.Command {
 	root.PersistentFlags().StringVar(&cliconfig.ServerAddr, "server", "", "server address")
 	root.PersistentFlags().StringVar(&cliconfig.GPGKeyID, "gpg-key", "", "GPG key ID")
 	root.PersistentFlags().BoolVar(&cliconfig.JSONOutput, "json", false, "output as JSON")
+
+	root.SetVersionTemplate(fmt.Sprintf("sekeve %s\n", version.Version))
+
+	root.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print the version",
+		Run: func(_ *cobra.Command, _ []string) {
+			fmt.Printf("sekeve %s\n", version.Version)
+		},
+	})
 
 	root.AddCommand(client.NewAddCmd())
 	root.AddCommand(client.NewGetCmd())
