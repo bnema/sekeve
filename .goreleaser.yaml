@@ -22,6 +22,34 @@ archives:
   - format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
+dockers:
+  - image_templates:
+      - "ghcr.io/bnema/sekeve:{{ .Version }}-amd64"
+    use: buildx
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+  - image_templates:
+      - "ghcr.io/bnema/sekeve:{{ .Version }}-arm64"
+    use: buildx
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+
+docker_manifests:
+  - name_template: "ghcr.io/bnema/sekeve:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/bnema/sekeve:{{ .Version }}-amd64"
+      - "ghcr.io/bnema/sekeve:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/bnema/sekeve:latest"
+    image_templates:
+      - "ghcr.io/bnema/sekeve:{{ .Version }}-amd64"
+      - "ghcr.io/bnema/sekeve:{{ .Version }}-arm64"
+
 changelog:
   sort: asc
   filters:

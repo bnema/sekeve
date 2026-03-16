@@ -5,10 +5,11 @@ on:
 
 jobs:
   release:
-    name: GitHub Release
+    name: Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -18,6 +19,13 @@ jobs:
           go-version: '1.26'
       - name: Install gpg
         run: sudo apt-get update && sudo apt-get install -y gnupg
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
@@ -26,19 +34,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOEXPERIMENT: runtimesecret
-
-  ghcr:
-    name: Push to GHCR
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v6
-      - uses: bnema/gh-actions/actions/docker-deploy@main
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          image: bnema/sekeve
-          platforms: linux/amd64,linux/arm64

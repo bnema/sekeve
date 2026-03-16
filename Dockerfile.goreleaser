@@ -1,0 +1,8 @@
+FROM alpine:3.23
+ARG TARGETARCH
+RUN apk add --no-cache gnupg
+RUN wget -qO /bin/grpc-health-probe \
+    "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/v0.4.46/grpc_health_probe-linux-${TARGETARCH}" && \
+    chmod +x /bin/grpc-health-probe
+COPY sekeve /bin/sekeve
+ENTRYPOINT ["/bin/sekeve"]
