@@ -54,8 +54,9 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the version",
-		Run: func(_ *cobra.Command, _ []string) {
-			fmt.Printf("sekeve %s\n", version.Version)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "sekeve %s\n", version.Version)
+			return err
 		},
 	})
 

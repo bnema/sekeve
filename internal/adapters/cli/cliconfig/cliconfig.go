@@ -23,8 +23,13 @@ type ctxKey string
 const configKey ctxKey = "config"
 
 // ConfigFromCmd retrieves the ConfigPort stored in the command's context.
+// Panics if WithConfig was not called in PersistentPreRunE.
 func ConfigFromCmd(cmd *cobra.Command) port.ConfigPort {
-	return cmd.Context().Value(configKey).(port.ConfigPort)
+	cfg, ok := cmd.Context().Value(configKey).(port.ConfigPort)
+	if !ok {
+		panic("ConfigFromCmd: no config in context; ensure WithConfig was called in PersistentPreRunE")
+	}
+	return cfg
 }
 
 // WithConfig returns a new context with the given ConfigPort embedded.
