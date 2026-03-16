@@ -33,7 +33,11 @@ type SessionCache struct {
 }
 
 func ConfigDir() string {
-	dir, _ := os.UserConfigDir()
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, ".config", "sekeve")
+	}
 	return filepath.Join(dir, "sekeve")
 }
 
@@ -68,7 +72,9 @@ func LoadSession() (*SessionCache, error) {
 
 func SaveSession(s *SessionCache) error {
 	dir := ConfigDir()
-	os.MkdirAll(dir, 0700)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
 	data, err := yaml.Marshal(s)
 	if err != nil {
 		return err

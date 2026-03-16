@@ -21,7 +21,7 @@ func NewListCmd() *cobra.Command {
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 			defer clientApp.Close(ctx)
 
@@ -29,7 +29,7 @@ func NewListCmd() *cobra.Command {
 			entries, err := clientApp.Vault.ListEntries(ctx, entryType)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			if cliconfig.JSONOutput {

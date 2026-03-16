@@ -114,18 +114,38 @@ func (s *BboltStore) Create(ctx context.Context, envelope *entity.Envelope) erro
 func (s *BboltStore) Update(ctx context.Context, envelope *entity.Envelope) error {
 	log := zerowrap.FromCtx(ctx)
 
-	envelope.UpdatedAt = time.Now().UTC()
-
-	data, err := json.Marshal(envelope)
-	if err != nil {
-		return log.WrapErr(err, "failed to marshal envelope")
-	}
-
-	err = s.db.Update(func(tx *bolt.Tx) error {
+	err := s.db.Update(func(tx *bolt.Tx) error {
 		bEntries := tx.Bucket(bucketEntries)
 
-		if existing := bEntries.Get([]byte(envelope.ID)); existing == nil {
+		existing := bEntries.Get([]byte(envelope.ID))
+		if existing == nil {
 			return port.ErrNotFound
+		}
+
+		// Decode old entry to check if type changed.
+		var oldEnv entity.Envelope
+		if err := json.Unmarshal(existing, &oldEnv); err != nil {
+			return log.WrapErr(err, "failed to unmarshal existing entry")
+		}
+
+		// Update type index if type changed.
+		typeIdx := tx.Bucket(bucketIndexType)
+		if oldEnv.Type != envelope.Type {
+			oldTypeKey := fmt.Sprintf("%d:%s", oldEnv.Type, oldEnv.Name)
+			typeIdx.Delete([]byte(oldTypeKey))
+			newTypeKey := fmt.Sprintf("%d:%s", envelope.Type, envelope.Name)
+			if err := typeIdx.Put([]byte(newTypeKey), []byte(envelope.ID)); err != nil {
+				return fmt.Errorf("put index_type: %w", err)
+			}
+		}
+
+		// Preserve CreatedAt from old entry and update UpdatedAt.
+		envelope.CreatedAt = oldEnv.CreatedAt
+		envelope.UpdatedAt = time.Now().UTC()
+
+		data, err := json.Marshal(envelope)
+		if err != nil {
+			return log.WrapErr(err, "failed to marshal envelope")
 		}
 
 		if err := bEntries.Put([]byte(envelope.ID), data); err != nil {
@@ -270,7 +290,9 @@ func (s *BboltStore) Delete(ctx context.Context, name string) error {
 			copy(dataCopy, data)
 
 			var env entity.Envelope
-			if err := json.Unmarshal(dataCopy, &env); err == nil {
+			if err := json.Unmarshal(dataCopy, &env); err != nil {
+				log.Warn().Err(err).Str("name", name).Msg("failed to unmarshal entry during delete, type index may be stale")
+			} else {
 				bType := tx.Bucket(bucketIndexType)
 				typeKey := typeIndexKey(&env)
 				_ = bType.Delete(typeKey)

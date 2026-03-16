@@ -26,7 +26,7 @@ func NewDmenuCmd() *cobra.Command {
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 			defer clientApp.Close(ctx)
 
@@ -34,7 +34,7 @@ func NewDmenuCmd() *cobra.Command {
 				entries, err := clientApp.Vault.ListEntries(ctx, entity.EntryTypeUnspecified)
 				if err != nil {
 					styles.RenderError(os.Stderr, err)
-					return nil
+					return err
 				}
 				for _, e := range entries {
 					fmt.Println(formatDmenuLine(e))
@@ -45,14 +45,15 @@ func NewDmenuCmd() *cobra.Command {
 			if copySelection != "" {
 				name := parseDmenuSelection(copySelection)
 				if name == "" {
-					styles.RenderError(os.Stderr, fmt.Errorf("could not parse selection: %q", copySelection))
-					return nil
+					err := fmt.Errorf("could not parse selection: %q", copySelection)
+					styles.RenderError(os.Stderr, err)
+					return err
 				}
 
 				env, err := clientApp.Vault.GetEntry(ctx, name)
 				if err != nil {
 					styles.RenderError(os.Stderr, err)
-					return nil
+					return err
 				}
 
 				var copyErr error
@@ -94,11 +95,11 @@ func NewDmenuCmd() *cobra.Command {
 
 				if decryptErr != nil {
 					styles.RenderError(os.Stderr, decryptErr)
-					return nil
+					return decryptErr
 				}
 				if copyErr != nil {
 					styles.RenderError(os.Stderr, copyErr)
-					return nil
+					return copyErr
 				}
 				return nil
 			}

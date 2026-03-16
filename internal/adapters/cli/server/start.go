@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"os"
 
 	grpcadapter "github.com/bnema/sekeve/internal/adapters/grpc"
 	"github.com/bnema/sekeve/internal/adapters/storage"
@@ -26,7 +25,7 @@ func NewStartCmd() *cobra.Command {
 			store, err := storage.NewBboltStore(ctx, dataPath)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to open storage")
-				os.Exit(1)
+				return err
 			}
 			defer store.Close(context.Background())
 
@@ -37,7 +36,7 @@ func NewStartCmd() *cobra.Command {
 				} else {
 					log.Error().Err(err).Msg("failed to load auth key")
 				}
-				os.Exit(1)
+				return err
 			}
 
 			authManager := grpcadapter.NewAuthManager(pubKey)
@@ -46,7 +45,7 @@ func NewStartCmd() *cobra.Command {
 			log.Info().Str("addr", addr).Msg("starting gRPC server")
 			if err := server.Serve(ctx, addr); err != nil {
 				log.Error().Err(err).Msg("server error")
-				os.Exit(1)
+				return err
 			}
 			return nil
 		},

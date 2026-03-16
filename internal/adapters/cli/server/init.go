@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"os"
+	"fmt"
 
 	adaptercrypto "github.com/bnema/sekeve/internal/adapters/crypto"
 	"github.com/bnema/sekeve/internal/adapters/storage"
@@ -22,27 +22,26 @@ func NewInitCmd() *cobra.Command {
 			log := zerowrap.FromCtx(ctx)
 
 			if gpgKeyID == "" {
-				log.Error().Msg("--gpg-key is required")
-				os.Exit(1)
+				return fmt.Errorf("--gpg-key is required")
 			}
 
 			gpg := adaptercrypto.NewGPGAdapter()
 			pubKey, err := gpg.ExportPublicKey(ctx, gpgKeyID)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to export GPG public key")
-				os.Exit(1)
+				return err
 			}
 
 			store, err := storage.NewBboltStore(ctx, dataPath)
 			if err != nil {
 				log.Error().Err(err).Msg("failed to open storage")
-				os.Exit(1)
+				return err
 			}
 			defer store.Close(context.Background())
 
 			if err := store.StoreAuthKey(ctx, pubKey); err != nil {
 				log.Error().Err(err).Msg("failed to store auth key")
-				os.Exit(1)
+				return err
 			}
 
 			log.Info().Str("key_id", gpgKeyID).Msg("GPG key registered successfully")

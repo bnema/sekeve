@@ -23,14 +23,14 @@ func NewGetCmd() *cobra.Command {
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 			defer clientApp.Close(ctx)
 
 			env, err := clientApp.Vault.GetEntry(ctx, name)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			var displayErr error
@@ -48,15 +48,15 @@ func NewGetCmd() *cobra.Command {
 						displayErr = err
 						return
 					}
-					fields := map[string]string{
-						"Username": login.Username,
-						"Password": login.Password,
+					fields := []styles.Field{
+						{Label: "Username", Value: login.Username},
+						{Label: "Password", Value: login.Password},
 					}
 					if login.Site != "" {
-						fields["Site"] = login.Site
+						fields = append(fields, styles.Field{Label: "Site", Value: login.Site})
 					}
 					if login.Notes != "" {
-						fields["Notes"] = login.Notes
+						fields = append(fields, styles.Field{Label: "Notes", Value: login.Notes})
 					}
 					styles.RenderEntry(os.Stdout, env, fields)
 
@@ -66,8 +66,8 @@ func NewGetCmd() *cobra.Command {
 						displayErr = err
 						return
 					}
-					styles.RenderEntry(os.Stdout, env, map[string]string{
-						"Value": secret.Value,
+					styles.RenderEntry(os.Stdout, env, []styles.Field{
+						{Label: "Value", Value: secret.Value},
 					})
 
 				case entity.EntryTypeNote:
@@ -76,8 +76,8 @@ func NewGetCmd() *cobra.Command {
 						displayErr = err
 						return
 					}
-					styles.RenderEntry(os.Stdout, env, map[string]string{
-						"Content": note.Content,
+					styles.RenderEntry(os.Stdout, env, []styles.Field{
+						{Label: "Content", Value: note.Content},
 					})
 
 				default:
@@ -86,10 +86,11 @@ func NewGetCmd() *cobra.Command {
 			})
 			if decryptErr != nil {
 				styles.RenderError(os.Stderr, decryptErr)
-				return nil
+				return decryptErr
 			}
 			if displayErr != nil {
 				styles.RenderError(os.Stderr, displayErr)
+				return displayErr
 			}
 			return nil
 		},
