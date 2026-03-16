@@ -7,7 +7,7 @@ import (
 
 	"github.com/bnema/sekeve/internal/adapters/storage"
 	"github.com/bnema/sekeve/internal/domain/entity"
-	"github.com/bnema/sekeve/internal/domain/port"
+	"github.com/bnema/sekeve/internal/port"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

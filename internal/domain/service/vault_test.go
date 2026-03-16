@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/bnema/sekeve/internal/domain/entity"
-	"github.com/bnema/sekeve/internal/domain/port"
-	"github.com/bnema/sekeve/internal/domain/port/mocks"
+	"github.com/bnema/sekeve/internal/port"
+	"github.com/bnema/sekeve/internal/port/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 

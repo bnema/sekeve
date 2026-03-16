@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/bnema/sekeve/internal/domain/entity"
-	"github.com/bnema/sekeve/internal/domain/port"
+	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
 	"github.com/google/uuid"
 	bolt "go.etcd.io/bbolt"
