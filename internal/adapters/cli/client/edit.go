@@ -24,14 +24,14 @@ func NewEditCmd() *cobra.Command {
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 			defer clientApp.Close(ctx)
 
 			env, err := clientApp.Vault.GetEntry(ctx, name)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			var updateErr error
@@ -95,16 +95,16 @@ func NewEditCmd() *cobra.Command {
 
 			if decryptErr != nil {
 				styles.RenderError(os.Stderr, decryptErr)
-				return nil
+				return decryptErr
 			}
 			if updateErr != nil {
 				styles.RenderError(os.Stderr, updateErr)
-				return nil
+				return updateErr
 			}
 
 			if err := clientApp.Vault.UpdateEntry(ctx, env); err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			if cliconfig.JSONOutput {
@@ -122,29 +122,44 @@ func editInEditor(content string) (string, error) {
 		editor = "vi"
 	}
 
-	tmpFile, err := os.CreateTemp("", "sekeve-note-*.txt")
+	tmpFile, err := os.CreateTemp("", "sekeve-edit-*.txt")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	tmpName := tmpFile.Name()
+
+	if err := os.Chmod(tmpName, 0600); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpName)
+		return "", fmt.Errorf("failed to set temp file permissions: %w", err)
+	}
 
 	if _, err := tmpFile.WriteString(content); err != nil {
 		tmpFile.Close()
+		os.Remove(tmpName)
 		return "", fmt.Errorf("failed to write temp file: %w", err)
 	}
 	tmpFile.Close()
 
-	cmd := exec.Command(editor, tmpFile.Name())
+	cmd := exec.Command(editor, tmpName)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
+		os.Remove(tmpName)
 		return "", fmt.Errorf("editor failed: %w", err)
 	}
 
-	data, err := os.ReadFile(tmpFile.Name())
+	data, err := os.ReadFile(tmpName)
 	if err != nil {
+		os.Remove(tmpName)
 		return "", fmt.Errorf("failed to read temp file: %w", err)
 	}
+
+	// Securely overwrite with zeros before removing.
+	zeros := make([]byte, len(data))
+	_ = os.WriteFile(tmpName, zeros, 0600)
+	os.Remove(tmpName)
+
 	return string(data), nil
 }

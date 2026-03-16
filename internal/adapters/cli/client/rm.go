@@ -21,13 +21,13 @@ func NewRmCmd() *cobra.Command {
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 			defer clientApp.Close(ctx)
 
 			if err := clientApp.Vault.DeleteEntry(ctx, name); err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			if cliconfig.JSONOutput {

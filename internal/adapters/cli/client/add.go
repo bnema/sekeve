@@ -11,6 +11,7 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/styles"
 	"github.com/bnema/sekeve/internal/domain/entity"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func NewAddCmd() *cobra.Command {
@@ -57,7 +58,14 @@ func newAddLoginCmd() *cobra.Command {
 				username = prompt("Username", "")
 			}
 			if password == "" {
-				password = prompt("Password", "")
+				fmt.Print("Password: ")
+				passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+				fmt.Println()
+				if err != nil {
+					styles.RenderError(os.Stderr, err)
+					return err
+				}
+				password = string(passBytes)
 			}
 			if notes == "" {
 				notes = prompt("Notes (optional)", "")
@@ -72,13 +80,13 @@ func newAddLoginCmd() *cobra.Command {
 			payload, err := json.Marshal(login)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 			defer clientApp.Close(ctx)
 
@@ -91,7 +99,7 @@ func newAddLoginCmd() *cobra.Command {
 
 			if err := clientApp.Vault.AddEntry(ctx, env); err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			if cliconfig.JSONOutput {
@@ -123,13 +131,13 @@ func newAddSecretCmd() *cobra.Command {
 			payload, err := json.Marshal(secret)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 			defer clientApp.Close(ctx)
 
@@ -141,7 +149,7 @@ func newAddSecretCmd() *cobra.Command {
 
 			if err := clientApp.Vault.AddEntry(ctx, env); err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			if cliconfig.JSONOutput {
@@ -169,7 +177,7 @@ func newAddNoteCmd() *cobra.Command {
 				data, err := os.ReadFile(filePath)
 				if err != nil {
 					styles.RenderError(os.Stderr, err)
-					return nil
+					return err
 				}
 				content = string(data)
 			} else {
@@ -186,13 +194,13 @@ func newAddNoteCmd() *cobra.Command {
 			payload, err := json.Marshal(note)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 			defer clientApp.Close(ctx)
 
@@ -204,7 +212,7 @@ func newAddNoteCmd() *cobra.Command {
 
 			if err := clientApp.Vault.AddEntry(ctx, env); err != nil {
 				styles.RenderError(os.Stderr, err)
-				return nil
+				return err
 			}
 
 			if cliconfig.JSONOutput {

@@ -199,7 +199,8 @@ func TestBboltStore_Update(t *testing.T) {
 				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
-				got, _ := store.Get(context.Background(), env.Name)
+				got, err := store.Get(context.Background(), env.Name)
+				require.NoError(t, err)
 				assert.Equal(t, []byte("new"), got.Payload)
 				assert.True(t, got.UpdatedAt.After(got.CreatedAt))
 			}

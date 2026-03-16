@@ -52,10 +52,16 @@ func RenderSuccess(w io.Writer, msg string) {
 	fmt.Fprintln(w)
 }
 
-func RenderEntry(w io.Writer, env *entity.Envelope, fields map[string]string) {
+// Field is a labeled key-value pair for ordered display in RenderEntry.
+type Field struct {
+	Label string
+	Value string
+}
+
+func RenderEntry(w io.Writer, env *entity.Envelope, fields []Field) {
 	lipgloss.Fprintln(w, TitleStyle.Render(env.Name)+" "+MutedStyle.Render("("+env.Type.String()+")"))
-	for label, value := range fields {
-		lipgloss.Fprintln(w, LabelStyle.Render(label)+ValueStyle.Render(value))
+	for _, f := range fields {
+		lipgloss.Fprintln(w, LabelStyle.Render(f.Label)+ValueStyle.Render(f.Value))
 	}
 }
 

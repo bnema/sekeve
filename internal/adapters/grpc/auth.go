@@ -62,8 +62,17 @@ func (a *AuthManager) GenerateChallenge(ctx context.Context) (string, error) {
 	nonce := hex.EncodeToString(buf)
 
 	a.mu.Lock()
-	a.nonces[nonce] = nonceEntry{expiresAt: time.Now().Add(nonceTTL)}
-	a.mu.Unlock()
+	defer a.mu.Unlock()
+
+	// Clean expired nonces to prevent unbounded memory growth.
+	now := time.Now()
+	for k, entry := range a.nonces {
+		if now.After(entry.expiresAt) {
+			delete(a.nonces, k)
+		}
+	}
+
+	a.nonces[nonce] = nonceEntry{expiresAt: now.Add(nonceTTL)}
 
 	return nonce, nil
 }

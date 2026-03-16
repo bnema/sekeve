@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os/exec"
+	"unicode"
 
 	sekevev1 "github.com/bnema/sekeve/gen/proto/sekeve/v1"
 	"github.com/bnema/sekeve/internal/domain/entity"
@@ -79,10 +81,24 @@ func (s *Server) ServeListener(ctx context.Context, lis net.Listener) error {
 	}
 }
 
+// validateKeyID validates that a GPG key ID contains only allowed characters.
+func validateKeyID(keyID string) error {
+	for _, r := range keyID {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '@' && r != '.' && r != '-' && r != '_' {
+			return fmt.Errorf("invalid character in GPG key ID: %c", r)
+		}
+	}
+	return nil
+}
+
 // Authenticate imports the stored GPG public key, generates a challenge nonce,
 // encrypts the challenge with the client's key and returns the ciphertext.
 func (s *Server) Authenticate(ctx context.Context, req *sekevev1.AuthRequest) (*sekevev1.AuthChallenge, error) {
 	log := zerowrap.FromCtx(ctx)
+
+	if err := validateKeyID(req.GpgKeyId); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid GPG key ID: %v", err)
+	}
 
 	pubKey := s.auth.GPGPublicKey()
 
