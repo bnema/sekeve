@@ -81,8 +81,12 @@ func (s *Server) ServeListener(ctx context.Context, lis net.Listener) error {
 	}
 }
 
-// validateKeyID validates that a GPG key ID contains only allowed characters.
+// validateKeyID checks that a GPG key ID contains only safe characters.
+// Accepts fingerprints and email addresses. Does not accept full user IDs with spaces.
 func validateKeyID(keyID string) error {
+	if keyID == "" {
+		return fmt.Errorf("GPG key ID cannot be empty")
+	}
 	for _, r := range keyID {
 		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '@' && r != '.' && r != '-' && r != '_' {
 			return fmt.Errorf("invalid character in GPG key ID: %c", r)
