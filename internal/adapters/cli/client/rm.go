@@ -20,21 +20,24 @@ func NewRmCmd() *cobra.Command {
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() {
+				if err := clientApp.Close(ctx); err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+				}
+			}()
 
 			if err := clientApp.Vault.DeleteEntry(ctx, name); err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, map[string]string{"deleted": name})
 			}
-			styles.RenderSuccess(os.Stdout, fmt.Sprintf("Entry %q deleted", name))
-			return nil
+			return styles.RenderSuccess(os.Stdout, fmt.Sprintf("Entry %q deleted", name))
 		},
 	}
 }

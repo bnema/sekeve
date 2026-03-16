@@ -16,7 +16,7 @@ func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "sekeve",
 		Short: "CLI secret manager with GPG encryption",
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := cliconfig.LoadConfig()
 			if err != nil {
 				return err

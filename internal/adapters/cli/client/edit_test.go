@@ -66,10 +66,11 @@ fi
 `
 	scriptFile, err := os.CreateTemp("", "sekeve-test-editor-*.sh")
 	require.NoError(t, err)
-	defer os.Remove(scriptFile.Name())
-	scriptFile.WriteString(script)
-	scriptFile.Close()
-	os.Chmod(scriptFile.Name(), 0755)
+	defer func() { require.NoError(t, os.Remove(scriptFile.Name())) }()
+	_, err = scriptFile.WriteString(script)
+	require.NoError(t, err)
+	require.NoError(t, scriptFile.Close())
+	require.NoError(t, os.Chmod(scriptFile.Name(), 0755))
 
 	t.Setenv("EDITOR", scriptFile.Name())
 

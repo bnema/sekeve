@@ -82,6 +82,6 @@ func TestGPGAdapter_DecryptInvalidData(t *testing.T) {
 	_ = setupTestGPGKey(t)
 	adapter := crypto.NewGPGAdapter()
 
-	err := adapter.DecryptAndUse(context.Background(), []byte("not-encrypted"), func(plaintext []byte) {})
+	err := adapter.DecryptAndUse(context.Background(), []byte("not-encrypted"), func(_ []byte) {})
 	assert.Error(t, err)
 }

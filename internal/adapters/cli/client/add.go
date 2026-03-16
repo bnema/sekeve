@@ -62,7 +62,7 @@ func newAddLoginCmd() *cobra.Command {
 				passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 				fmt.Println()
 				if err != nil {
-					styles.RenderError(os.Stderr, err)
+					_ = styles.RenderError(os.Stderr, err)
 					return err
 				}
 				password = string(passBytes)
@@ -79,16 +79,20 @@ func newAddLoginCmd() *cobra.Command {
 			}
 			payload, err := json.Marshal(login)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() {
+				if err := clientApp.Close(ctx); err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+				}
+			}()
 
 			env := &entity.Envelope{
 				Name:    name,
@@ -98,15 +102,14 @@ func newAddLoginCmd() *cobra.Command {
 			}
 
 			if err := clientApp.Vault.AddEntry(ctx, env); err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, env)
 			}
-			styles.RenderSuccess(os.Stdout, fmt.Sprintf("Login %q added", name))
-			return nil
+			return styles.RenderSuccess(os.Stdout, fmt.Sprintf("Login %q added", name))
 		},
 	}
 
@@ -130,16 +133,20 @@ func newAddSecretCmd() *cobra.Command {
 			secret := entity.Secret{Name: name, Value: value}
 			payload, err := json.Marshal(secret)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() {
+				if err := clientApp.Close(ctx); err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+				}
+			}()
 
 			env := &entity.Envelope{
 				Name:    name,
@@ -148,15 +155,14 @@ func newAddSecretCmd() *cobra.Command {
 			}
 
 			if err := clientApp.Vault.AddEntry(ctx, env); err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, env)
 			}
-			styles.RenderSuccess(os.Stdout, fmt.Sprintf("Secret %q added", name))
-			return nil
+			return styles.RenderSuccess(os.Stdout, fmt.Sprintf("Secret %q added", name))
 		},
 	}
 }
@@ -176,7 +182,7 @@ func newAddNoteCmd() *cobra.Command {
 			if filePath != "" {
 				data, err := os.ReadFile(filePath)
 				if err != nil {
-					styles.RenderError(os.Stderr, err)
+					_ = styles.RenderError(os.Stderr, err)
 					return err
 				}
 				content = string(data)
@@ -193,16 +199,20 @@ func newAddNoteCmd() *cobra.Command {
 			note := entity.Note{Name: name, Content: content}
 			payload, err := json.Marshal(note)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() {
+				if err := clientApp.Close(ctx); err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+				}
+			}()
 
 			env := &entity.Envelope{
 				Name:    name,
@@ -211,15 +221,14 @@ func newAddNoteCmd() *cobra.Command {
 			}
 
 			if err := clientApp.Vault.AddEntry(ctx, env); err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, env)
 			}
-			styles.RenderSuccess(os.Stdout, fmt.Sprintf("Note %q added", name))
-			return nil
+			return styles.RenderSuccess(os.Stdout, fmt.Sprintf("Note %q added", name))
 		},
 	}
 

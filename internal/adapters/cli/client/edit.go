@@ -23,14 +23,18 @@ func NewEditCmd() *cobra.Command {
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() {
+				if err := clientApp.Close(ctx); err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+				}
+			}()
 
 			env, err := clientApp.Vault.GetEntry(ctx, name)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
@@ -94,24 +98,23 @@ func NewEditCmd() *cobra.Command {
 			})
 
 			if decryptErr != nil {
-				styles.RenderError(os.Stderr, decryptErr)
+				_ = styles.RenderError(os.Stderr, decryptErr)
 				return decryptErr
 			}
 			if updateErr != nil {
-				styles.RenderError(os.Stderr, updateErr)
+				_ = styles.RenderError(os.Stderr, updateErr)
 				return updateErr
 			}
 
 			if err := clientApp.Vault.UpdateEntry(ctx, env); err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, env)
 			}
-			styles.RenderSuccess(os.Stdout, fmt.Sprintf("Entry %q updated", name))
-			return nil
+			return styles.RenderSuccess(os.Stdout, fmt.Sprintf("Entry %q updated", name))
 		},
 	}
 }
@@ -127,34 +130,49 @@ func editInEditor(content string) (string, error) {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpName := tmpFile.Name()
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return "", fmt.Errorf("failed to close temp file: %w", err)
+	}
 
 	// Recreate with restricted permissions to avoid TOCTOU race
 	tmpFile, err = os.OpenFile(tmpName, os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
-		os.Remove(tmpName)
+		if removeErr := os.Remove(tmpName); removeErr != nil {
+			return "", fmt.Errorf("failed to set temp file permissions: %w (also failed to remove temp file: %v)", err, removeErr)
+		}
 		return "", fmt.Errorf("failed to set temp file permissions: %w", err)
 	}
 
 	if _, err := tmpFile.WriteString(content); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpName)
+		if closeErr := tmpFile.Close(); closeErr != nil {
+			_ = os.Remove(tmpName)
+			return "", fmt.Errorf("failed to write temp file: %w (also failed to close: %v)", err, closeErr)
+		}
+		_ = os.Remove(tmpName)
 		return "", fmt.Errorf("failed to write temp file: %w", err)
 	}
-	tmpFile.Close()
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return "", fmt.Errorf("failed to close temp file after write: %w", err)
+	}
 
 	cmd := exec.Command(editor, tmpName)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		os.Remove(tmpName)
+		if removeErr := os.Remove(tmpName); removeErr != nil {
+			return "", fmt.Errorf("editor failed: %w (also failed to remove temp file: %v)", err, removeErr)
+		}
 		return "", fmt.Errorf("editor failed: %w", err)
 	}
 
 	data, err := os.ReadFile(tmpName)
 	if err != nil {
-		os.Remove(tmpName)
+		if removeErr := os.Remove(tmpName); removeErr != nil {
+			return "", fmt.Errorf("failed to read temp file: %w (also failed to remove temp file: %v)", err, removeErr)
+		}
 		return "", fmt.Errorf("failed to read temp file: %w", err)
 	}
 
@@ -166,10 +184,14 @@ func editInEditor(content string) (string, error) {
 	}
 	zeros := make([]byte, size)
 	if err := os.WriteFile(tmpName, zeros, 0600); err != nil {
-		os.Remove(tmpName)
+		if removeErr := os.Remove(tmpName); removeErr != nil {
+			return string(data), fmt.Errorf("failed to securely overwrite temp file: %w (also failed to remove temp file: %v)", err, removeErr)
+		}
 		return string(data), fmt.Errorf("failed to securely overwrite temp file: %w", err)
 	}
-	os.Remove(tmpName)
+	if err := os.Remove(tmpName); err != nil {
+		return string(data), fmt.Errorf("failed to remove temp file: %w", err)
+	}
 
 	return string(data), nil
 }

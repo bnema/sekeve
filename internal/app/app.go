@@ -26,4 +26,4 @@ func NewClientApp(ctx context.Context, serverAddr string, gpgKeyID string) (*Cli
 	return &ClientApp{Vault: vault, Sync: grpcClient, Crypto: crypto}, nil
 }
 
-func (a *ClientApp) Close(ctx context.Context) { a.Sync.Close(ctx) }
+func (a *ClientApp) Close(ctx context.Context) error { return a.Sync.Close(ctx) }

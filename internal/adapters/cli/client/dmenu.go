@@ -20,20 +20,24 @@ func NewDmenuCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dmenu",
 		Short: "dmenu/rofi integration for secret picker",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() {
+				if err := clientApp.Close(ctx); err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+				}
+			}()
 
 			if listMode {
 				entries, err := clientApp.Vault.ListEntries(ctx, entity.EntryTypeUnspecified)
 				if err != nil {
-					styles.RenderError(os.Stderr, err)
+					_ = styles.RenderError(os.Stderr, err)
 					return err
 				}
 				for _, e := range entries {
@@ -46,13 +50,13 @@ func NewDmenuCmd() *cobra.Command {
 				name := parseDmenuSelection(copySelection)
 				if name == "" {
 					err := fmt.Errorf("could not parse selection: %q", copySelection)
-					styles.RenderError(os.Stderr, err)
+					_ = styles.RenderError(os.Stderr, err)
 					return err
 				}
 
 				env, err := clientApp.Vault.GetEntry(ctx, name)
 				if err != nil {
-					styles.RenderError(os.Stderr, err)
+					_ = styles.RenderError(os.Stderr, err)
 					return err
 				}
 
@@ -94,18 +98,17 @@ func NewDmenuCmd() *cobra.Command {
 				})
 
 				if decryptErr != nil {
-					styles.RenderError(os.Stderr, decryptErr)
+					_ = styles.RenderError(os.Stderr, decryptErr)
 					return decryptErr
 				}
 				if copyErr != nil {
-					styles.RenderError(os.Stderr, copyErr)
+					_ = styles.RenderError(os.Stderr, copyErr)
 					return copyErr
 				}
 				return nil
 			}
 
-			cmd.Help()
-			return nil
+			return cmd.Help()
 		},
 	}
 

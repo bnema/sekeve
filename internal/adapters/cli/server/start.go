@@ -18,7 +18,7 @@ func NewStartCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start",
 		Short: "Start the sekeve gRPC server",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			log := zerowrap.FromCtx(ctx)
 
@@ -27,7 +27,11 @@ func NewStartCmd() *cobra.Command {
 				log.Error().Err(err).Msg("failed to open storage")
 				return err
 			}
-			defer store.Close(context.Background())
+			defer func() {
+				if err := store.Close(context.Background()); err != nil {
+					log.Error().Err(err).Msg("failed to close store")
+				}
+			}()
 
 			pubKey, err := store.GetAuthKey(ctx)
 			if err != nil {
