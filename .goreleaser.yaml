@@ -1,0 +1,37 @@
+version: 2
+
+builds:
+  - main: ./cmd/sekeve
+    binary: sekeve
+    env:
+      - CGO_ENABLED=0
+      - GOEXPERIMENT=runtimesecret
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/bnema/sekeve/internal/version.Version={{.Version}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+
+archives:
+  - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+release:
+  github:
+    owner: bnema
+    name: sekeve
