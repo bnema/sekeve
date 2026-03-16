@@ -133,7 +133,7 @@ func processImport(ctx context.Context, vault VaultImporter, export BitwardenExp
 	for _, item := range export.Items {
 		// Validate name.
 		if strings.TrimSpace(item.Name) == "" {
-			fmt.Fprintf(w, "warning: skipped item with empty name (type %d)\n", item.Type)
+			_, _ = fmt.Fprintf(w, "warning: skipped item with empty name (type %d)\n", item.Type)
 			result.Invalid++
 			continue
 		}
@@ -143,7 +143,7 @@ func processImport(ctx context.Context, vault VaultImporter, export BitwardenExp
 		case bwTypeLogin, bwTypeSecureNote:
 			// supported
 		default:
-			fmt.Fprintf(w, "warning: skipped unsupported item %q (type %d)\n", item.Name, item.Type)
+			_, _ = fmt.Fprintf(w, "warning: skipped unsupported item %q (type %d)\n", item.Name, item.Type)
 			result.Unsupported++
 			continue
 		}
@@ -158,14 +158,14 @@ func processImport(ctx context.Context, vault VaultImporter, export BitwardenExp
 			env, mapErr = MapNoteToEnvelope(item)
 		}
 		if mapErr != nil {
-			fmt.Fprintf(w, "warning: skipped %q: mapping error: %v\n", item.Name, mapErr)
+			_, _ = fmt.Fprintf(w, "warning: skipped %q: mapping error: %v\n", item.Name, mapErr)
 			result.Invalid++
 			continue
 		}
 
 		// Duplicate check using final envelope name (server + in-file).
 		if nameSet[env.Name] {
-			fmt.Fprintf(w, "warning: skipped duplicate %q\n", env.Name)
+			_, _ = fmt.Fprintf(w, "warning: skipped duplicate %q\n", env.Name)
 			result.Duplicates++
 			continue
 		}
@@ -175,7 +175,7 @@ func processImport(ctx context.Context, vault VaultImporter, export BitwardenExp
 	}
 
 	if len(toImport) == 0 {
-		fmt.Fprintln(w, "nothing to import")
+		_, _ = fmt.Fprintln(w, "nothing to import")
 		return &result, nil
 	}
 
@@ -207,13 +207,13 @@ func processImport(ctx context.Context, vault VaultImporter, export BitwardenExp
 					}
 					if addErr := vault.AddEntry(ctx, env); addErr != nil {
 						mu.Lock()
-						fmt.Fprintf(w, "error: failed to import %q: %v\n", env.Name, addErr)
+						_, _ = fmt.Fprintf(w, "error: failed to import %q: %v\n", env.Name, addErr)
 						mu.Unlock()
 						failed.Add(1)
 					} else {
 						n := imported.Add(1)
 						mu.Lock()
-						fmt.Fprintf(w, "Importing: %d/%d\n", n, total)
+						_, _ = fmt.Fprintf(w, "Importing: %d/%d\n", n, total)
 						mu.Unlock()
 					}
 				}

@@ -139,7 +139,7 @@ func runHealthCheck(ctx context.Context, serverAddr string) error {
 			p.Send(healthCheckMsg{err: err})
 			return
 		}
-		defer client.Close(ctx)
+		defer func() { _ = client.Close(ctx) }()
 
 		err = client.CheckHealth(checkCtx)
 		p.Send(healthCheckMsg{err: err})
