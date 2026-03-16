@@ -42,8 +42,7 @@ func (m pubkeyModel) Init() tea.Cmd {
 }
 
 func (m pubkeyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		switch msg.String() {
 		case "ctrl+c":
 			m.err = fmt.Errorf("cancelled")

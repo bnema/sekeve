@@ -64,31 +64,3 @@ The key can be provided via:
 	cmd.Flags().StringVar(&dataPath, "data", "./sekeve.db", "Path to bbolt database")
 	return cmd
 }
-
-// collectAndStoreKey runs the key collection and validation flow, then stores it.
-// Used by both `server init` and `server start` (first-run onboarding).
-func collectAndStoreKey(cmd *cobra.Command, store *storage.BboltStore, pubKeyFile string) error {
-	ctx := cmd.Context()
-	log := zerowrap.FromCtx(ctx)
-
-	rawKey, source, err := readPublicKeyInput(cmd, pubKeyFile)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to read public key")
-		return err
-	}
-
-	gpg := adaptercrypto.NewGPGAdapter()
-	pubKey, err := gpg.ValidateArmoredPublicKey(ctx, rawKey)
-	if err != nil {
-		log.Error().Err(err).Msg("invalid public key")
-		return err
-	}
-
-	if err := store.StoreAuthKey(ctx, pubKey); err != nil {
-		log.Error().Err(err).Msg("failed to store auth key")
-		return err
-	}
-
-	log.Info().Str("source", source).Msg("GPG public key registered successfully")
-	return nil
-}

@@ -62,8 +62,7 @@ func (m onboardingModel) Init() tea.Cmd {
 }
 
 func (m onboardingModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyPressMsg:
+	if msg, ok := msg.(tea.KeyPressMsg); ok {
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			m.err = fmt.Errorf("onboarding cancelled")

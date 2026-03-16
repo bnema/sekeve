@@ -115,7 +115,7 @@ func (a *GPGAdapter) ValidateArmoredPublicKey(ctx context.Context, armored []byt
 	if err != nil {
 		return nil, log.WrapErr(err, "failed to create temp dir for key validation")
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	cmd := exec.CommandContext(ctx, "gpg",
 		"--batch", "--quiet",
@@ -141,6 +141,6 @@ func (a *GPGAdapter) ValidateArmoredPublicKey(ctx context.Context, armored []byt
 	}
 
 	// Normalize: trim whitespace, ensure trailing newline.
-	normalized := append(trimmed, '\n')
-	return normalized, nil
+	trimmed = append(trimmed, '\n')
+	return trimmed, nil
 }
