@@ -117,9 +117,25 @@ sekeve dmenu --copy "$(sekeve dmenu --list | fuzzel --dmenu)"
 
 Logins copy the password, secrets copy the value, notes copy the full content.
 
+## Import from Bitwarden
+
+Export your vault from Bitwarden as unencrypted JSON (`bw export --format json`), then import:
+
+```bash
+sekeve import bitwarden ~/bw-export.json
+```
+
+Logins are imported with the username appended to the name (e.g., `GitHub (alice@work.com)`). URIs are normalized to strip paths while preserving subdomains. Secure notes are imported as-is. Cards, identities, and SSH keys are skipped.
+
+Delete the export file after import - it contains plaintext credentials.
+
 ## Auth
 
 Authentication uses GPG challenge-response. The server encrypts a nonce with your public key; the client decrypts it to prove identity. No passwords. Session tokens are cached locally for one hour.
+
+## Security
+
+**Transport security:** The gRPC server uses plaintext HTTP/2 by default and does not terminate TLS. Do not expose it directly to the internet. Place it behind a reverse proxy that handles TLS - for example Caddy, nginx with a certificate, or Cloudflare Tunnel. All data on the wire is GPG-encrypted, but the connection metadata and auth handshake are not protected without TLS.
 
 ## Development
 
@@ -129,6 +145,7 @@ make test     # run all tests
 make lint     # golangci-lint
 make mock     # regenerate mocks
 make build    # build binary
+make wipe     # delete all vault entries (requires jq)
 make install  # install to $GOBIN
 ```
 
