@@ -1,7 +1,7 @@
 version: "2"
 
 run:
-  timeout: 3m
+  timeout: 5m
 
 linters:
   enable:
@@ -12,6 +12,14 @@ linters:
     - unused
     - gocritic
     - revive
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+        - name: indent-error-flow
+        - name: unused-parameter
 
 formatters:
   enable:

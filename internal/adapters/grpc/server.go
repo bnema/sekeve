@@ -29,7 +29,8 @@ type Server struct {
 
 // NewServer creates a new Server with the auth interceptor registered.
 func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager) *Server {
-	_ = zerowrap.FromCtx(ctx)
+	log := zerowrap.FromCtx(ctx)
+	log.Info().Msg("creating gRPC server")
 
 	s := &Server{
 		storage: storage,
