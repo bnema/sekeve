@@ -8,7 +8,7 @@ import (
 	"context"
 
 	"github.com/bnema/sekeve/internal/domain/entity"
-	"github.com/bnema/sekeve/internal/domain/port"
+	"github.com/bnema/sekeve/internal/port"
 	mock "github.com/stretchr/testify/mock"
 )
 

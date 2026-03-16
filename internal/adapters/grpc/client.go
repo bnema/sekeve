@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/bnema/sekeve/internal/domain/entity"
-	"github.com/bnema/sekeve/internal/domain/port"
+	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

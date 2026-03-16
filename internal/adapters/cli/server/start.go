@@ -6,7 +6,7 @@ import (
 
 	grpcadapter "github.com/bnema/sekeve/internal/adapters/grpc"
 	"github.com/bnema/sekeve/internal/adapters/storage"
-	"github.com/bnema/sekeve/internal/domain/port"
+	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
 	"github.com/spf13/cobra"
 )

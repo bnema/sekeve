@@ -1,12 +1,12 @@
 all: false
-dir: "internal/domain/port/mocks"
+dir: "internal/port/mocks"
 filename: "mock_{{.InterfaceName | snakecase}}.go"
 formatter: goimports
 log-level: info
 structname: "Mock{{.InterfaceName}}"
 pkgname: "mocks"
 packages:
-  github.com/bnema/sekeve/internal/domain/port:
+  github.com/bnema/sekeve/internal/port:
     interfaces:
       StoragePort:
       CryptoPort:
