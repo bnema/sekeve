@@ -83,7 +83,8 @@ func newAddLoginCmd() *cobra.Command {
 				return err
 			}
 
-			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
+			cfg := cliconfig.ConfigFromCmd(cmd)
+			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
 			if err != nil {
 				_ = styles.RenderError(os.Stderr, err)
 				return err
@@ -137,7 +138,8 @@ func newAddSecretCmd() *cobra.Command {
 				return err
 			}
 
-			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
+			cfg := cliconfig.ConfigFromCmd(cmd)
+			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
 			if err != nil {
 				_ = styles.RenderError(os.Stderr, err)
 				return err
@@ -203,7 +205,8 @@ func newAddNoteCmd() *cobra.Command {
 				return err
 			}
 
-			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
+			cfg := cliconfig.ConfigFromCmd(cmd)
+			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
 			if err != nil {
 				_ = styles.RenderError(os.Stderr, err)
 				return err

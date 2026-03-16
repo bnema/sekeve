@@ -19,7 +19,8 @@ func NewSearchCmd() *cobra.Command {
 			ctx := cmd.Context()
 			query := strings.ToLower(args[0])
 
-			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
+			cfg := cliconfig.ConfigFromCmd(cmd)
+			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
 			if err != nil {
 				_ = styles.RenderError(os.Stderr, err)
 				return err

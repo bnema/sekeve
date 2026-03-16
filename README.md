@@ -33,11 +33,11 @@ docker compose up -d
 
 ## Client config
 
-Create `~/.config/sekeve/config.yaml`:
+Create `~/.config/sekeve/config.toml`:
 
-```yaml
-server_addr: "localhost:50051"
-gpg_key_id: "user@example.com"
+```toml
+server_addr = "localhost:50051"
+gpg_key_id = "user@example.com"
 ```
 
 Both fields can be overridden with `--server`, `--gpg-key` flags or `SEKEVE_SERVER_ADDR`, `SEKEVE_GPG_KEY_ID` env vars.

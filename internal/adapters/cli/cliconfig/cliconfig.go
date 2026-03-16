@@ -1,110 +1,64 @@
-// Package cliconfig holds shared CLI state (flags, config, session helpers)
+// Package cliconfig holds shared CLI state (flags, session helpers)
 // that must be accessible from sub-command packages without creating import cycles.
 package cliconfig
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"time"
 
 	"github.com/bnema/sekeve/internal/app"
+	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
-	"gopkg.in/yaml.v3"
+	"github.com/spf13/cobra"
 )
 
-// Flags are set by the root command persistent pre-run hook and read by sub-commands.
+// CLI flag vars — overrides for config file values.
 var (
 	ServerAddr string
 	GPGKeyID   string
 	JSONOutput bool
 )
 
-// Config represents the on-disk config file.
-type Config struct {
-	ServerAddr string `yaml:"server_addr"`
-	GPGKeyID   string `yaml:"gpg_key_id"`
+type ctxKey string
+
+const configKey ctxKey = "config"
+
+// ConfigFromCmd retrieves the ConfigPort stored in the command's context.
+func ConfigFromCmd(cmd *cobra.Command) port.ConfigPort {
+	return cmd.Context().Value(configKey).(port.ConfigPort)
 }
 
-// SessionCache is the cached auth session.
-type SessionCache struct {
-	Token     string    `yaml:"token"`
-	ExpiresAt time.Time `yaml:"expires_at"`
+// WithConfig returns a new context with the given ConfigPort embedded.
+func WithConfig(ctx context.Context, cfg port.ConfigPort) context.Context {
+	return context.WithValue(ctx, configKey, cfg)
 }
 
-func ConfigDir() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		home, homeErr := os.UserHomeDir()
-		if homeErr != nil {
-			return ".sekeve"
-		}
-		return filepath.Join(home, ".config", "sekeve")
-	}
-	return filepath.Join(dir, "sekeve")
-}
-
-func LoadConfig() (*Config, error) {
-	path := filepath.Join(ConfigDir(), "config.yaml")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return &Config{ServerAddr: "localhost:50051"}, nil
-		}
-		return nil, err
-	}
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-	return &cfg, nil
-}
-
-func LoadSession() (*SessionCache, error) {
-	path := filepath.Join(ConfigDir(), "session")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var s SessionCache
-	if err := yaml.Unmarshal(data, &s); err != nil {
-		return nil, err
-	}
-	return &s, nil
-}
-
-func SaveSession(s *SessionCache) error {
-	dir := ConfigDir()
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return err
-	}
-	data, err := yaml.Marshal(s)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(dir, "session"), data, 0600)
-}
-
-func ConnectAndAuth(ctx context.Context, serverAddr, gpgKeyID string) (*app.ClientApp, error) {
+func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, error) {
 	log := zerowrap.FromCtx(ctx)
-	clientApp, err := app.NewClientApp(ctx, serverAddr, gpgKeyID)
+
+	clientApp, err := app.NewClientApp(ctx, cfg)
 	if err != nil {
 		return nil, log.WrapErr(err, "failed to connect")
 	}
-	session, err := LoadSession()
-	if err == nil && time.Now().Before(session.ExpiresAt) {
-		clientApp.Sync.SetToken(session.Token)
+
+	// Try cached session
+	token, err := cfg.SessionToken(ctx)
+	if err == nil {
+		clientApp.Sync.SetToken(token)
 		return clientApp, nil
 	}
-	token, err := clientApp.Vault.Authenticate(ctx)
+
+	// Re-authenticate
+	token, err = clientApp.Vault.Authenticate(ctx)
 	if err != nil {
 		if closeErr := clientApp.Close(ctx); closeErr != nil {
 			log.Warn().Err(closeErr).Msg("failed to close client app after auth failure")
 		}
 		return nil, log.WrapErr(err, "authentication failed")
 	}
-	if saveErr := SaveSession(&SessionCache{Token: token, ExpiresAt: time.Now().Add(1 * time.Hour)}); saveErr != nil {
+
+	if saveErr := cfg.SaveSessionToken(ctx, token, 3600); saveErr != nil {
 		log.Warn().Err(saveErr).Msg("failed to cache session")
 	}
+
 	return clientApp, nil
 }

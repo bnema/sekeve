@@ -1,11 +1,15 @@
 // Package cli provides re-exports of cliconfig helpers for backward compatibility.
 package cli
 
-import "github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
+import (
+	"context"
 
-type Config = cliconfig.Config
-type SessionCache = cliconfig.SessionCache
+	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
+	"github.com/bnema/sekeve/internal/port"
+	"github.com/spf13/cobra"
+)
 
-func LoadConfig() (*cliconfig.Config, error)        { return cliconfig.LoadConfig() }
-func LoadSession() (*cliconfig.SessionCache, error) { return cliconfig.LoadSession() }
-func SaveSession(s *cliconfig.SessionCache) error   { return cliconfig.SaveSession(s) }
+func ConfigFromCmd(cmd *cobra.Command) port.ConfigPort { return cliconfig.ConfigFromCmd(cmd) }
+func WithConfig(ctx context.Context, cfg port.ConfigPort) context.Context {
+	return cliconfig.WithConfig(ctx, cfg)
+}
