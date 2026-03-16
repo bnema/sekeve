@@ -8,6 +8,7 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/cli/client"
 	"github.com/bnema/sekeve/internal/adapters/cli/server"
+	adapterconfig "github.com/bnema/sekeve/internal/adapters/config"
 	"github.com/bnema/zerowrap"
 	"github.com/spf13/cobra"
 )
@@ -17,27 +18,26 @@ func NewRootCmd() *cobra.Command {
 		Use:   "sekeve",
 		Short: "CLI secret manager with GPG encryption",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := cliconfig.LoadConfig()
-			if err != nil {
-				return err
-			}
-			if cliconfig.ServerAddr == "" {
-				cliconfig.ServerAddr = cfg.ServerAddr
-			}
-			if cliconfig.GPGKeyID == "" {
-				cliconfig.GPGKeyID = cfg.GPGKeyID
-			}
-			if env := os.Getenv("SEKEVE_SERVER_ADDR"); env != "" {
-				cliconfig.ServerAddr = env
-			}
-			if env := os.Getenv("SEKEVE_GPG_KEY_ID"); env != "" {
-				cliconfig.GPGKeyID = env
-			}
 			logger := zerowrap.New(zerowrap.Config{Level: "info", Format: "console"})
 			ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt)
 			ctx = zerowrap.WithCtx(ctx, logger)
-			cmd.SetContext(ctx)
 			cobra.OnFinalize(func() { cancel() })
+
+			cfg, err := adapterconfig.NewViperConfig(ctx)
+			if err != nil {
+				return err
+			}
+
+			// CLI flags override config file values
+			if cliconfig.ServerAddr != "" {
+				cfg.SetOverride("server_addr", cliconfig.ServerAddr)
+			}
+			if cliconfig.GPGKeyID != "" {
+				cfg.SetOverride("gpg_key_id", cliconfig.GPGKeyID)
+			}
+
+			ctx = cliconfig.WithConfig(ctx, cfg)
+			cmd.SetContext(ctx)
 			return nil
 		},
 	}

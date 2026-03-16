@@ -23,7 +23,8 @@ func NewDmenuCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
-			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
+			cfg := cliconfig.ConfigFromCmd(cmd)
+			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
 			if err != nil {
 				_ = styles.RenderError(os.Stderr, err)
 				return err
