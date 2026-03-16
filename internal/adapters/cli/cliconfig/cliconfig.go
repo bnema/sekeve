@@ -35,7 +35,10 @@ type SessionCache struct {
 func ConfigDir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
-		home, _ := os.UserHomeDir()
+		home, homeErr := os.UserHomeDir()
+		if homeErr != nil {
+			return ".sekeve"
+		}
 		return filepath.Join(home, ".config", "sekeve")
 	}
 	return filepath.Join(dir, "sekeve")

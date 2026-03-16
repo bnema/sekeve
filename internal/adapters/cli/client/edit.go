@@ -127,9 +127,11 @@ func editInEditor(content string) (string, error) {
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpName := tmpFile.Name()
+	tmpFile.Close()
 
-	if err := os.Chmod(tmpName, 0600); err != nil {
-		tmpFile.Close()
+	// Recreate with restricted permissions to avoid TOCTOU race
+	tmpFile, err = os.OpenFile(tmpName, os.O_WRONLY|os.O_TRUNC, 0600)
+	if err != nil {
 		os.Remove(tmpName)
 		return "", fmt.Errorf("failed to set temp file permissions: %w", err)
 	}
@@ -157,8 +159,16 @@ func editInEditor(content string) (string, error) {
 	}
 
 	// Securely overwrite with zeros before removing.
-	zeros := make([]byte, len(data))
-	_ = os.WriteFile(tmpName, zeros, 0600)
+	// Use file size (editor may have expanded it) rather than data length.
+	size := len(data)
+	if fi, err := os.Stat(tmpName); err == nil && fi.Size() > int64(size) {
+		size = int(fi.Size())
+	}
+	zeros := make([]byte, size)
+	if err := os.WriteFile(tmpName, zeros, 0600); err != nil {
+		os.Remove(tmpName)
+		return string(data), fmt.Errorf("failed to securely overwrite temp file: %w", err)
+	}
 	os.Remove(tmpName)
 
 	return string(data), nil

@@ -130,7 +130,7 @@ func (s *BboltStore) Update(ctx context.Context, envelope *entity.Envelope) erro
 
 		// Update type index if type changed.
 		typeIdx := tx.Bucket(bucketIndexType)
-		if oldEnv.Type != envelope.Type {
+		if oldEnv.Type != envelope.Type || oldEnv.Name != envelope.Name {
 			oldTypeKey := fmt.Sprintf("%d:%s", oldEnv.Type, oldEnv.Name)
 			typeIdx.Delete([]byte(oldTypeKey))
 			newTypeKey := fmt.Sprintf("%d:%s", envelope.Type, envelope.Name)
