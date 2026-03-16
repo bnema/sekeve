@@ -17,15 +17,24 @@ func newTestStore(t *testing.T) *storage.BboltStore {
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	store, err := storage.NewBboltStore(context.Background(), dbPath)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = store.Close(context.Background()) })
+	t.Cleanup(func() {
+		if err := store.Close(context.Background()); err != nil {
+			t.Errorf("failed to close test store: %v", err)
+		}
+	})
 	return store
+}
+
+func mustCreate(t testing.TB, s *storage.BboltStore, env *entity.Envelope) {
+	t.Helper()
+	require.NoError(t, s.Create(context.Background(), env))
 }
 
 func TestBboltStore_Create(t *testing.T) {
 	tests := []struct {
 		name     string
 		envelope *entity.Envelope
-		setup    func(*storage.BboltStore)
+		setup    func(testing.TB, *storage.BboltStore)
 		wantErr  error
 	}{
 		{
@@ -35,8 +44,8 @@ func TestBboltStore_Create(t *testing.T) {
 		{
 			name:     "create duplicate name fails",
 			envelope: &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("encrypted-data")},
-			setup: func(s *storage.BboltStore) {
-				_ = s.Create(context.Background(), &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("existing")})
+			setup: func(t testing.TB, s *storage.BboltStore) {
+				mustCreate(t, s, &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("existing")})
 			},
 			wantErr: port.ErrAlreadyExists,
 		},
@@ -45,7 +54,7 @@ func TestBboltStore_Create(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newTestStore(t)
 			if tt.setup != nil {
-				tt.setup(store)
+				tt.setup(t, store)
 			}
 			err := store.Create(context.Background(), tt.envelope)
 			if tt.wantErr != nil {
@@ -63,13 +72,13 @@ func TestBboltStore_Get(t *testing.T) {
 	tests := []struct {
 		name      string
 		entryName string
-		setup     func(*storage.BboltStore)
+		setup     func(testing.TB, *storage.BboltStore)
 		wantErr   error
 	}{
 		{
 			name: "get existing entry", entryName: "github",
-			setup: func(s *storage.BboltStore) {
-				_ = s.Create(context.Background(), &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("encrypted")})
+			setup: func(t testing.TB, s *storage.BboltStore) {
+				mustCreate(t, s, &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("encrypted")})
 			},
 		},
 		{name: "get non-existent entry", entryName: "missing", wantErr: port.ErrNotFound},
@@ -78,7 +87,7 @@ func TestBboltStore_Get(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newTestStore(t)
 			if tt.setup != nil {
-				tt.setup(store)
+				tt.setup(t, store)
 			}
 			envelope, err := store.Get(context.Background(), tt.entryName)
 			if tt.wantErr != nil {
@@ -96,23 +105,23 @@ func TestBboltStore_List(t *testing.T) {
 	tests := []struct {
 		name      string
 		entryType entity.EntryType
-		setup     func(*storage.BboltStore)
+		setup     func(testing.TB, *storage.BboltStore)
 		wantCount int
 	}{
 		{name: "list all from empty store", entryType: entity.EntryTypeUnspecified, wantCount: 0},
 		{
 			name: "list all entries", entryType: entity.EntryTypeUnspecified,
-			setup: func(s *storage.BboltStore) {
-				_ = s.Create(context.Background(), &entity.Envelope{Name: "gh", Type: entity.EntryTypeLogin, Payload: []byte("a")})
-				_ = s.Create(context.Background(), &entity.Envelope{Name: "key", Type: entity.EntryTypeSecret, Payload: []byte("b")})
+			setup: func(t testing.TB, s *storage.BboltStore) {
+				mustCreate(t, s, &entity.Envelope{Name: "gh", Type: entity.EntryTypeLogin, Payload: []byte("a")})
+				mustCreate(t, s, &entity.Envelope{Name: "key", Type: entity.EntryTypeSecret, Payload: []byte("b")})
 			},
 			wantCount: 2,
 		},
 		{
 			name: "list filtered by type", entryType: entity.EntryTypeLogin,
-			setup: func(s *storage.BboltStore) {
-				_ = s.Create(context.Background(), &entity.Envelope{Name: "gh", Type: entity.EntryTypeLogin, Payload: []byte("a")})
-				_ = s.Create(context.Background(), &entity.Envelope{Name: "key", Type: entity.EntryTypeSecret, Payload: []byte("b")})
+			setup: func(t testing.TB, s *storage.BboltStore) {
+				mustCreate(t, s, &entity.Envelope{Name: "gh", Type: entity.EntryTypeLogin, Payload: []byte("a")})
+				mustCreate(t, s, &entity.Envelope{Name: "key", Type: entity.EntryTypeSecret, Payload: []byte("b")})
 			},
 			wantCount: 1,
 		},
@@ -121,7 +130,7 @@ func TestBboltStore_List(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newTestStore(t)
 			if tt.setup != nil {
-				tt.setup(store)
+				tt.setup(t, store)
 			}
 			entries, err := store.List(context.Background(), tt.entryType)
 			assert.NoError(t, err)
@@ -134,13 +143,13 @@ func TestBboltStore_Delete(t *testing.T) {
 	tests := []struct {
 		name      string
 		entryName string
-		setup     func(*storage.BboltStore)
+		setup     func(testing.TB, *storage.BboltStore)
 		wantErr   error
 	}{
 		{
 			name: "delete existing entry", entryName: "github",
-			setup: func(s *storage.BboltStore) {
-				_ = s.Create(context.Background(), &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("a")})
+			setup: func(t testing.TB, s *storage.BboltStore) {
+				mustCreate(t, s, &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("a")})
 			},
 		},
 		{name: "delete non-existent entry", entryName: "missing", wantErr: port.ErrNotFound},
@@ -149,7 +158,7 @@ func TestBboltStore_Delete(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newTestStore(t)
 			if tt.setup != nil {
-				tt.setup(store)
+				tt.setup(t, store)
 			}
 			err := store.Delete(context.Background(), tt.entryName)
 			if tt.wantErr != nil {
@@ -166,22 +175,22 @@ func TestBboltStore_Delete(t *testing.T) {
 func TestBboltStore_Update(t *testing.T) {
 	tests := []struct {
 		name    string
-		setup   func(*storage.BboltStore) *entity.Envelope
+		setup   func(testing.TB, *storage.BboltStore) *entity.Envelope
 		update  func(*entity.Envelope)
 		wantErr error
 	}{
 		{
 			name: "update existing entry",
-			setup: func(s *storage.BboltStore) *entity.Envelope {
+			setup: func(t testing.TB, s *storage.BboltStore) *entity.Envelope {
 				env := &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("old")}
-				_ = s.Create(context.Background(), env)
+				mustCreate(t, s, env)
 				return env
 			},
 			update: func(env *entity.Envelope) { env.Payload = []byte("new") },
 		},
 		{
 			name: "update non-existent entry",
-			setup: func(_ *storage.BboltStore) *entity.Envelope {
+			setup: func(_ testing.TB, _ *storage.BboltStore) *entity.Envelope {
 				return &entity.Envelope{ID: "fake-id", Name: "missing", Type: entity.EntryTypeLogin}
 			},
 			wantErr: port.ErrNotFound,
@@ -190,7 +199,7 @@ func TestBboltStore_Update(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newTestStore(t)
-			env := tt.setup(store)
+			env := tt.setup(t, store)
 			if tt.update != nil {
 				tt.update(env)
 			}
@@ -212,16 +221,13 @@ func TestBboltStore_AuthKey(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
 
-	// No key stored yet
 	_, err := store.GetAuthKey(ctx)
 	assert.ErrorIs(t, err, port.ErrNotFound)
 
-	// Store a key
 	pubKey := []byte("-----BEGIN PGP PUBLIC KEY BLOCK-----\ntest\n-----END PGP PUBLIC KEY BLOCK-----")
 	err = store.StoreAuthKey(ctx, pubKey)
 	assert.NoError(t, err)
 
-	// Retrieve it
 	got, err := store.GetAuthKey(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, pubKey, got)

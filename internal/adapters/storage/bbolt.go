@@ -48,7 +48,9 @@ func NewBboltStore(ctx context.Context, path string) (*BboltStore, error) {
 		return nil
 	})
 	if err != nil {
-		_ = db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			log.Error().Err(closeErr).Msg("failed to close database after init error")
+		}
 		return nil, log.WrapErr(err, "failed to initialise buckets")
 	}
 
@@ -297,7 +299,9 @@ func (s *BboltStore) Delete(ctx context.Context, name string) error {
 			} else {
 				bType := tx.Bucket(bucketIndexType)
 				typeKey := typeIndexKey(&env)
-				_ = bType.Delete(typeKey)
+				if err := bType.Delete(typeKey); err != nil {
+					return fmt.Errorf("delete index_type: %w", err)
+				}
 			}
 		}
 
