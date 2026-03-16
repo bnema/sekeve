@@ -42,6 +42,13 @@ gpg_key_id = "user@example.com"
 
 Both fields can be overridden with `--server`, `--gpg-key` flags or `SEKEVE_SERVER_ADDR`, `SEKEVE_GPG_KEY_ID` env vars.
 
+## Environment variables
+
+| Variable           | Description                                          | Default   |
+|--------------------|------------------------------------------------------|-----------|
+| `SEKEVE_LOG_LEVEL` | Log level: `trace`, `debug`, `info`, `warn`, `error` | `info`    |
+| `SEKEVE_LOG_FORMAT`| Log output format: `console`, `json`                 | `console` |
+
 ## Usage
 
 ```bash

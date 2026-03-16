@@ -9,7 +9,7 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/client"
 	"github.com/bnema/sekeve/internal/adapters/cli/server"
 	adapterconfig "github.com/bnema/sekeve/internal/adapters/config"
-	"github.com/bnema/zerowrap"
+	logadapter "github.com/bnema/sekeve/internal/adapters/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -18,9 +18,8 @@ func NewRootCmd() *cobra.Command {
 		Use:   "sekeve",
 		Short: "CLI secret manager with GPG encryption",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-			logger := zerowrap.New(zerowrap.Config{Level: "info", Format: "console"})
 			ctx, cancel := signal.NotifyContext(cmd.Context(), os.Interrupt)
-			ctx = zerowrap.WithCtx(ctx, logger)
+			_, ctx = logadapter.New(ctx)
 			cobra.OnFinalize(func() { cancel() })
 
 			cfg, err := adapterconfig.NewViperConfig(ctx)
