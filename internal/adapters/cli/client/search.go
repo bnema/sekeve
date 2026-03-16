@@ -2,7 +2,6 @@ package client
 
 import (
 	"os"
-	"strings"
 
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/cli/styles"
@@ -11,13 +10,20 @@ import (
 )
 
 func NewSearchCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "search <query>",
-		Short: "Search entries by name",
-		Args:  cobra.ExactArgs(1),
+	var domain, email string
+
+	cmd := &cobra.Command{
+		Use:   "search [query]",
+		Short: "Search entries by name, domain, or email",
+		Long: `Search entries across name, domain/site, and username/email.
+
+Examples:
+  sekeve search gmail
+  sekeve search --domain gmail.com
+  sekeve search --email test@gmail.com`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			query := strings.ToLower(args[0])
 
 			cfg := cliconfig.ConfigFromCmd(cmd)
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
@@ -37,12 +43,11 @@ func NewSearchCmd() *cobra.Command {
 				return err
 			}
 
-			var matched []*entity.Envelope
-			for _, e := range all {
-				if strings.Contains(strings.ToLower(e.Name), query) {
-					matched = append(matched, e)
-				}
+			opts := resolveOpts{Domain: domain, Email: email}
+			if len(args) > 0 {
+				opts.Query = args[0]
 			}
+			matched := filterEntries(all, opts)
 
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, matched)
@@ -50,4 +55,8 @@ func NewSearchCmd() *cobra.Command {
 			return styles.RenderTable(os.Stdout, matched)
 		},
 	}
+
+	cmd.Flags().StringVar(&domain, "domain", "", "Filter by domain/site")
+	cmd.Flags().StringVar(&email, "email", "", "Filter by username/email")
+	return cmd
 }

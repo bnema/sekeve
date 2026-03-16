@@ -42,12 +42,11 @@ func TestBboltStore_Create(t *testing.T) {
 			envelope: &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("encrypted-data")},
 		},
 		{
-			name:     "create duplicate name fails",
-			envelope: &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("encrypted-data")},
+			name:     "create duplicate name succeeds (names are not unique)",
+			envelope: &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("encrypted-data-2")},
 			setup: func(t testing.TB, s *storage.BboltStore) {
 				mustCreate(t, s, &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("existing")})
 			},
-			wantErr: port.ErrAlreadyExists,
 		},
 	}
 	for _, tt := range tests {
@@ -68,34 +67,33 @@ func TestBboltStore_Create(t *testing.T) {
 	}
 }
 
-func TestBboltStore_Get(t *testing.T) {
+func TestBboltStore_GetByID(t *testing.T) {
 	tests := []struct {
-		name      string
-		entryName string
-		setup     func(testing.TB, *storage.BboltStore)
-		wantErr   error
+		name    string
+		setup   func(testing.TB, *storage.BboltStore) string
+		wantErr error
 	}{
 		{
-			name: "get existing entry", entryName: "github",
-			setup: func(t testing.TB, s *storage.BboltStore) {
-				mustCreate(t, s, &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("encrypted")})
+			name: "get existing entry",
+			setup: func(t testing.TB, s *storage.BboltStore) string {
+				env := &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("encrypted")}
+				mustCreate(t, s, env)
+				return env.ID
 			},
 		},
-		{name: "get non-existent entry", entryName: "missing", wantErr: port.ErrNotFound},
+		{name: "get non-existent entry", setup: func(_ testing.TB, _ *storage.BboltStore) string { return "non-existent-id" }, wantErr: port.ErrNotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newTestStore(t)
-			if tt.setup != nil {
-				tt.setup(t, store)
-			}
-			envelope, err := store.Get(context.Background(), tt.entryName)
+			id := tt.setup(t, store)
+			envelope, err := store.GetByID(context.Background(), id)
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
 				assert.Nil(t, envelope)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.entryName, envelope.Name)
+				assert.Equal(t, id, envelope.ID)
 			}
 		})
 	}
@@ -139,33 +137,32 @@ func TestBboltStore_List(t *testing.T) {
 	}
 }
 
-func TestBboltStore_Delete(t *testing.T) {
+func TestBboltStore_DeleteByID(t *testing.T) {
 	tests := []struct {
-		name      string
-		entryName string
-		setup     func(testing.TB, *storage.BboltStore)
-		wantErr   error
+		name    string
+		setup   func(testing.TB, *storage.BboltStore) string
+		wantErr error
 	}{
 		{
-			name: "delete existing entry", entryName: "github",
-			setup: func(t testing.TB, s *storage.BboltStore) {
-				mustCreate(t, s, &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("a")})
+			name: "delete existing entry",
+			setup: func(t testing.TB, s *storage.BboltStore) string {
+				env := &entity.Envelope{Name: "github", Type: entity.EntryTypeLogin, Payload: []byte("a")}
+				mustCreate(t, s, env)
+				return env.ID
 			},
 		},
-		{name: "delete non-existent entry", entryName: "missing", wantErr: port.ErrNotFound},
+		{name: "delete non-existent entry", setup: func(_ testing.TB, _ *storage.BboltStore) string { return "missing-id" }, wantErr: port.ErrNotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newTestStore(t)
-			if tt.setup != nil {
-				tt.setup(t, store)
-			}
-			err := store.Delete(context.Background(), tt.entryName)
+			id := tt.setup(t, store)
+			err := store.DeleteByID(context.Background(), id)
 			if tt.wantErr != nil {
 				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
-				_, err := store.Get(context.Background(), tt.entryName)
+				_, err := store.GetByID(context.Background(), id)
 				assert.ErrorIs(t, err, port.ErrNotFound)
 			}
 		})
@@ -208,7 +205,7 @@ func TestBboltStore_Update(t *testing.T) {
 				assert.ErrorIs(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
-				got, err := store.Get(context.Background(), env.Name)
+				got, err := store.GetByID(context.Background(), env.ID)
 				require.NoError(t, err)
 				assert.Equal(t, []byte("new"), got.Payload)
 				assert.True(t, got.UpdatedAt.After(got.CreatedAt))

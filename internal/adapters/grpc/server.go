@@ -167,15 +167,12 @@ func (s *Server) VerifyChallenge(ctx context.Context, req *sekevev1.ChallengeRes
 func (s *Server) CreateEntry(ctx context.Context, req *sekevev1.CreateEntryRequest) (*sekevev1.CreateEntryResponse, error) {
 	log := zerowrap.FromCtx(ctx)
 
-	if req.Entry == nil || req.Entry.Name == "" {
-		return nil, status.Error(codes.InvalidArgument, "entry name must not be empty")
+	if req.Entry == nil {
+		return nil, status.Error(codes.InvalidArgument, "entry must not be nil")
 	}
 
 	env := protoToEnvelope(req.Entry)
 	if err := s.storage.Create(ctx, env); err != nil {
-		if errors.Is(err, port.ErrAlreadyExists) {
-			return nil, status.Error(codes.AlreadyExists, "entry already exists")
-		}
 		return nil, log.WrapErr(err, "failed to create entry")
 	}
 
@@ -201,11 +198,11 @@ func (s *Server) UpdateEntry(ctx context.Context, req *sekevev1.UpdateEntryReque
 	return &sekevev1.UpdateEntryResponse{}, nil
 }
 
-// GetEntry retrieves an entry by name.
+// GetEntry retrieves an entry by ID.
 func (s *Server) GetEntry(ctx context.Context, req *sekevev1.GetEntryRequest) (*sekevev1.Entry, error) {
 	log := zerowrap.FromCtx(ctx)
 
-	env, err := s.storage.Get(ctx, req.Name)
+	env, err := s.storage.GetByID(ctx, req.GetId())
 	if err != nil {
 		if errors.Is(err, port.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "entry not found")
@@ -234,11 +231,11 @@ func (s *Server) ListEntries(ctx context.Context, req *sekevev1.ListEntriesReque
 	return &sekevev1.ListEntriesResponse{Entries: entries}, nil
 }
 
-// DeleteEntry removes an entry by name.
+// DeleteEntry removes an entry by ID.
 func (s *Server) DeleteEntry(ctx context.Context, req *sekevev1.DeleteEntryRequest) (*sekevev1.DeleteEntryResponse, error) {
 	log := zerowrap.FromCtx(ctx)
 
-	if err := s.storage.Delete(ctx, req.Name); err != nil {
+	if err := s.storage.DeleteByID(ctx, req.GetId()); err != nil {
 		if errors.Is(err, port.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "entry not found")
 		}

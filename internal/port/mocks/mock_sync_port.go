@@ -229,8 +229,8 @@ func (_c *MockSyncPort_CreateEntry_Call) RunAndReturn(run func(ctx context.Conte
 }
 
 // DeleteEntry provides a mock function for the type MockSyncPort
-func (_mock *MockSyncPort) DeleteEntry(ctx context.Context, name string) error {
-	ret := _mock.Called(ctx, name)
+func (_mock *MockSyncPort) DeleteEntry(ctx context.Context, id string) error {
+	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteEntry")
@@ -238,7 +238,7 @@ func (_mock *MockSyncPort) DeleteEntry(ctx context.Context, name string) error {
 
 	var r0 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, name)
+		r0 = returnFunc(ctx, id)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -252,12 +252,12 @@ type MockSyncPort_DeleteEntry_Call struct {
 
 // DeleteEntry is a helper method to define mock.On call
 //   - ctx context.Context
-//   - name string
-func (_e *MockSyncPort_Expecter) DeleteEntry(ctx interface{}, name interface{}) *MockSyncPort_DeleteEntry_Call {
-	return &MockSyncPort_DeleteEntry_Call{Call: _e.mock.On("DeleteEntry", ctx, name)}
+//   - id string
+func (_e *MockSyncPort_Expecter) DeleteEntry(ctx interface{}, id interface{}) *MockSyncPort_DeleteEntry_Call {
+	return &MockSyncPort_DeleteEntry_Call{Call: _e.mock.On("DeleteEntry", ctx, id)}
 }
 
-func (_c *MockSyncPort_DeleteEntry_Call) Run(run func(ctx context.Context, name string)) *MockSyncPort_DeleteEntry_Call {
+func (_c *MockSyncPort_DeleteEntry_Call) Run(run func(ctx context.Context, id string)) *MockSyncPort_DeleteEntry_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -280,14 +280,14 @@ func (_c *MockSyncPort_DeleteEntry_Call) Return(err error) *MockSyncPort_DeleteE
 	return _c
 }
 
-func (_c *MockSyncPort_DeleteEntry_Call) RunAndReturn(run func(ctx context.Context, name string) error) *MockSyncPort_DeleteEntry_Call {
+func (_c *MockSyncPort_DeleteEntry_Call) RunAndReturn(run func(ctx context.Context, id string) error) *MockSyncPort_DeleteEntry_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetEntry provides a mock function for the type MockSyncPort
-func (_mock *MockSyncPort) GetEntry(ctx context.Context, name string) (*entity.Envelope, error) {
-	ret := _mock.Called(ctx, name)
+func (_mock *MockSyncPort) GetEntry(ctx context.Context, id string) (*entity.Envelope, error) {
+	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetEntry")
@@ -296,17 +296,17 @@ func (_mock *MockSyncPort) GetEntry(ctx context.Context, name string) (*entity.E
 	var r0 *entity.Envelope
 	var r1 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*entity.Envelope, error)); ok {
-		return returnFunc(ctx, name)
+		return returnFunc(ctx, id)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *entity.Envelope); ok {
-		r0 = returnFunc(ctx, name)
+		r0 = returnFunc(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*entity.Envelope)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, name)
+		r1 = returnFunc(ctx, id)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -320,12 +320,12 @@ type MockSyncPort_GetEntry_Call struct {
 
 // GetEntry is a helper method to define mock.On call
 //   - ctx context.Context
-//   - name string
-func (_e *MockSyncPort_Expecter) GetEntry(ctx interface{}, name interface{}) *MockSyncPort_GetEntry_Call {
-	return &MockSyncPort_GetEntry_Call{Call: _e.mock.On("GetEntry", ctx, name)}
+//   - id string
+func (_e *MockSyncPort_Expecter) GetEntry(ctx interface{}, id interface{}) *MockSyncPort_GetEntry_Call {
+	return &MockSyncPort_GetEntry_Call{Call: _e.mock.On("GetEntry", ctx, id)}
 }
 
-func (_c *MockSyncPort_GetEntry_Call) Run(run func(ctx context.Context, name string)) *MockSyncPort_GetEntry_Call {
+func (_c *MockSyncPort_GetEntry_Call) Run(run func(ctx context.Context, id string)) *MockSyncPort_GetEntry_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -348,7 +348,7 @@ func (_c *MockSyncPort_GetEntry_Call) Return(envelope *entity.Envelope, err erro
 	return _c
 }
 
-func (_c *MockSyncPort_GetEntry_Call) RunAndReturn(run func(ctx context.Context, name string) (*entity.Envelope, error)) *MockSyncPort_GetEntry_Call {
+func (_c *MockSyncPort_GetEntry_Call) RunAndReturn(run func(ctx context.Context, id string) (*entity.Envelope, error)) *MockSyncPort_GetEntry_Call {
 	_c.Call.Return(run)
 	return _c
 }

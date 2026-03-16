@@ -44,20 +44,6 @@ func TestAddEntry(t *testing.T) {
 			},
 		},
 		{
-			name: "duplicate name error",
-			envelope: &entity.Envelope{
-				Name:    "existing-secret",
-				Type:    entity.EntryTypeSecret,
-				Payload: []byte("plaintext"),
-			},
-			setupMock: func(crypto *mocks.MockCryptoPort, syncP *mocks.MockSyncPort, env *entity.Envelope) {
-				encrypted := []byte("encrypted")
-				crypto.EXPECT().Encrypt(mock.Anything, env.Payload, testKeyID).Return(encrypted, nil)
-				syncP.EXPECT().CreateEntry(mock.Anything, mock.AnythingOfType("*entity.Envelope")).Return("", port.ErrAlreadyExists)
-			},
-			wantErr: port.ErrAlreadyExists,
-		},
-		{
 			name: "encrypt error",
 			envelope: &entity.Envelope{
 				Name:    "some-secret",
@@ -98,23 +84,23 @@ func TestAddEntry(t *testing.T) {
 func TestGetEntry(t *testing.T) {
 	tests := []struct {
 		name      string
-		entryName string
+		id        string
 		setupMock func(syncP *mocks.MockSyncPort)
 		wantErr   error
 	}{
 		{
-			name:      "success",
-			entryName: "my-secret",
+			name: "success",
+			id:   "id-1",
 			setupMock: func(syncP *mocks.MockSyncPort) {
 				env := &entity.Envelope{ID: "abc", Name: "my-secret", Payload: []byte("cipher")}
-				syncP.EXPECT().GetEntry(mock.Anything, "my-secret").Return(env, nil)
+				syncP.EXPECT().GetEntry(mock.Anything, "id-1").Return(env, nil)
 			},
 		},
 		{
-			name:      "not found",
-			entryName: "missing-secret",
+			name: "not found",
+			id:   "id-missing",
 			setupMock: func(syncP *mocks.MockSyncPort) {
-				syncP.EXPECT().GetEntry(mock.Anything, "missing-secret").Return(nil, port.ErrNotFound)
+				syncP.EXPECT().GetEntry(mock.Anything, "id-missing").Return(nil, port.ErrNotFound)
 			},
 			wantErr: port.ErrNotFound,
 		},
@@ -127,7 +113,7 @@ func TestGetEntry(t *testing.T) {
 			tc.setupMock(syncMock)
 
 			svc := newService(t, cryptoMock, syncMock)
-			env, err := svc.GetEntry(context.Background(), tc.entryName)
+			env, err := svc.GetEntry(context.Background(), tc.id)
 
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
@@ -135,7 +121,7 @@ func TestGetEntry(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, env)
-				assert.Equal(t, tc.entryName, env.Name)
+				assert.Equal(t, "abc", env.ID)
 			}
 		})
 	}
@@ -209,22 +195,22 @@ func TestListEntries(t *testing.T) {
 func TestDeleteEntry(t *testing.T) {
 	tests := []struct {
 		name      string
-		entryName string
+		id        string
 		setupMock func(syncP *mocks.MockSyncPort)
 		wantErr   error
 	}{
 		{
-			name:      "success",
-			entryName: "my-secret",
+			name: "success",
+			id:   "id-1",
 			setupMock: func(syncP *mocks.MockSyncPort) {
-				syncP.EXPECT().DeleteEntry(mock.Anything, "my-secret").Return(nil)
+				syncP.EXPECT().DeleteEntry(mock.Anything, "id-1").Return(nil)
 			},
 		},
 		{
-			name:      "not found",
-			entryName: "ghost-secret",
+			name: "not found",
+			id:   "id-missing",
 			setupMock: func(syncP *mocks.MockSyncPort) {
-				syncP.EXPECT().DeleteEntry(mock.Anything, "ghost-secret").Return(port.ErrNotFound)
+				syncP.EXPECT().DeleteEntry(mock.Anything, "id-missing").Return(port.ErrNotFound)
 			},
 			wantErr: port.ErrNotFound,
 		},
@@ -237,7 +223,7 @@ func TestDeleteEntry(t *testing.T) {
 			tc.setupMock(syncMock)
 
 			svc := newService(t, cryptoMock, syncMock)
-			err := svc.DeleteEntry(context.Background(), tc.entryName)
+			err := svc.DeleteEntry(context.Background(), tc.id)
 
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)

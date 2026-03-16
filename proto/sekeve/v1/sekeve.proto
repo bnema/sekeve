@@ -61,7 +61,7 @@ message UpdateEntryRequest {
 message UpdateEntryResponse {}
 
 message GetEntryRequest {
-  string name = 1;
+  string id = 1;
 }
 
 message ListEntriesRequest {
@@ -73,7 +73,7 @@ message ListEntriesResponse {
 }
 
 message DeleteEntryRequest {
-  string name = 1;
+  string id = 1;
 }
 
 message DeleteEntryResponse {}

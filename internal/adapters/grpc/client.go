@@ -106,10 +106,10 @@ func (c *Client) UpdateEntry(ctx context.Context, envelope *entity.Envelope) err
 	return nil
 }
 
-func (c *Client) GetEntry(ctx context.Context, name string) (*entity.Envelope, error) {
+func (c *Client) GetEntry(ctx context.Context, id string) (*entity.Envelope, error) {
 	log := zerowrap.FromCtx(ctx)
 	ctx = c.authedCtx(ctx)
-	entry, err := c.client.GetEntry(ctx, &sekevev1.GetEntryRequest{Name: name})
+	entry, err := c.client.GetEntry(ctx, &sekevev1.GetEntryRequest{Id: id})
 	if err != nil {
 		return nil, log.WrapErr(err, "failed to get entry")
 	}
@@ -130,10 +130,10 @@ func (c *Client) ListEntries(ctx context.Context, entryType entity.EntryType) ([
 	return envelopes, nil
 }
 
-func (c *Client) DeleteEntry(ctx context.Context, name string) error {
+func (c *Client) DeleteEntry(ctx context.Context, id string) error {
 	log := zerowrap.FromCtx(ctx)
 	ctx = c.authedCtx(ctx)
-	_, err := c.client.DeleteEntry(ctx, &sekevev1.DeleteEntryRequest{Name: name})
+	_, err := c.client.DeleteEntry(ctx, &sekevev1.DeleteEntryRequest{Id: id})
 	if err != nil {
 		return log.WrapErr(err, "failed to delete entry")
 	}

@@ -519,7 +519,7 @@ func (*UpdateEntryResponse) Descriptor() ([]byte, []int) {
 
 type GetEntryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -554,9 +554,9 @@ func (*GetEntryRequest) Descriptor() ([]byte, []int) {
 	return file_sekeve_v1_sekeve_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *GetEntryRequest) GetName() string {
+func (x *GetEntryRequest) GetId() string {
 	if x != nil {
-		return x.Name
+		return x.Id
 	}
 	return ""
 }
@@ -651,7 +651,7 @@ func (x *ListEntriesResponse) GetEntries() []*Entry {
 
 type DeleteEntryRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -686,9 +686,9 @@ func (*DeleteEntryRequest) Descriptor() ([]byte, []int) {
 	return file_sekeve_v1_sekeve_proto_rawDescGZIP(), []int{12}
 }
 
-func (x *DeleteEntryRequest) GetName() string {
+func (x *DeleteEntryRequest) GetId() string {
 	if x != nil {
-		return x.Name
+		return x.Id
 	}
 	return ""
 }
@@ -764,15 +764,15 @@ const file_sekeve_v1_sekeve_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"<\n" +
 	"\x12UpdateEntryRequest\x12&\n" +
 	"\x05entry\x18\x01 \x01(\v2\x10.sekeve.v1.EntryR\x05entry\"\x15\n" +
-	"\x13UpdateEntryResponse\"%\n" +
-	"\x0fGetEntryRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\">\n" +
+	"\x13UpdateEntryResponse\"!\n" +
+	"\x0fGetEntryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\">\n" +
 	"\x12ListEntriesRequest\x12(\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x14.sekeve.v1.EntryTypeR\x04type\"A\n" +
 	"\x13ListEntriesResponse\x12*\n" +
-	"\aentries\x18\x01 \x03(\v2\x10.sekeve.v1.EntryR\aentries\"(\n" +
-	"\x12DeleteEntryRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\x15\n" +
+	"\aentries\x18\x01 \x03(\v2\x10.sekeve.v1.EntryR\aentries\"$\n" +
+	"\x12DeleteEntryRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\x15\n" +
 	"\x13DeleteEntryResponse*i\n" +
 	"\tEntryType\x12\x1a\n" +
 	"\x16ENTRY_TYPE_UNSPECIFIED\x10\x00\x12\x14\n" +

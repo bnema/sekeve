@@ -9,8 +9,8 @@ import (
 type StoragePort interface {
 	Create(ctx context.Context, envelope *entity.Envelope) error
 	Update(ctx context.Context, envelope *entity.Envelope) error
-	Get(ctx context.Context, name string) (*entity.Envelope, error)
+	GetByID(ctx context.Context, id string) (*entity.Envelope, error)
 	List(ctx context.Context, entryType entity.EntryType) ([]*entity.Envelope, error)
-	Delete(ctx context.Context, name string) error
+	DeleteByID(ctx context.Context, id string) error
 	Close(ctx context.Context) error
 }

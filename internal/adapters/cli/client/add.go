@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -44,12 +45,16 @@ func newAddLoginCmd() *cobra.Command {
 	var site, username, password, notes string
 
 	cmd := &cobra.Command{
-		Use:   "login <name>",
+		Use:   "login",
 		Short: "Add a login entry",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Long: `Add a login entry. Name is auto-derived from site and username.
+
+Examples:
+  sekeve add login --site https://gmail.com --username brice@gmail.com --password hunter2
+  sekeve add login  # interactive prompts`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
-			name := args[0]
 
 			if site == "" {
 				site = prompt("Site", "")
@@ -67,9 +72,11 @@ func newAddLoginCmd() *cobra.Command {
 				}
 				password = string(passBytes)
 			}
-			if notes == "" {
+			if notes == "" && isTerminal() {
 				notes = prompt("Notes (optional)", "")
 			}
+
+			name := deriveLoginName(site, username)
 
 			login := entity.Login{
 				Site:     site,
@@ -119,6 +126,39 @@ func newAddLoginCmd() *cobra.Command {
 	cmd.Flags().StringVar(&password, "password", "", "Password")
 	cmd.Flags().StringVar(&notes, "notes", "", "Notes")
 	return cmd
+}
+
+func deriveLoginName(site, username string) string {
+	domain := extractDomain(site)
+	if domain == "" {
+		domain = site
+	}
+	if username != "" {
+		return fmt.Sprintf("%s (%s)", domain, username)
+	}
+	return domain
+}
+
+func extractDomain(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	host := u.Host
+	if host == "" {
+		u2, err := url.Parse("https://" + raw)
+		if err != nil {
+			return raw
+		}
+		host = u2.Host
+	}
+	if host == "" {
+		return raw
+	}
+	return host
 }
 
 func newAddSecretCmd() *cobra.Command {

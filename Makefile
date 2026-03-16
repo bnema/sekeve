@@ -34,7 +34,7 @@ wipe:
 	@echo "WARNING: This will delete ALL entries in the vault."
 	@read -p "Are you sure? [y/N] " confirm && [ "$$confirm" = "y" ] || { echo "Aborted."; exit 1; }
 	@echo "Wiping all entries..."
-	@sekeve list --json | jq -j '.[].name + "\u0000"' | while IFS= read -r -d '' name; do \
-		sekeve rm "$$name" 2>/dev/null && echo "  deleted: $$name" || echo "  skipped: $$name"; \
+	@sekeve list --json | jq -j '.[].id + "\u0000"' | while IFS= read -r -d '' id; do \
+		sekeve rm --id "$$id" 2>/dev/null && echo "  deleted: $$id" || echo "  skipped: $$id"; \
 	done
 	@echo "Done."

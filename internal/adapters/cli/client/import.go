@@ -114,14 +114,14 @@ func runImportBitwarden(cmd *cobra.Command, args []string) error {
 // processImport handles duplicate detection, item classification, mapping, and
 // concurrent import. It writes progress and warnings to w. Returns counters.
 func processImport(ctx context.Context, vault VaultImporter, export BitwardenExport, w io.Writer) (*importResult, error) {
-	// Preflight: fetch existing names for duplicate detection.
+	// Preflight: fetch existing entries for duplicate detection.
 	existing, err := vault.ListEntries(ctx, entity.EntryTypeUnspecified)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list existing entries: %w", err)
 	}
-	nameSet := make(map[string]bool, len(existing))
+	seen := make(map[string]bool, len(existing))
 	for _, e := range existing {
-		nameSet[e.Name] = true
+		seen[deduplicationKey(e)] = true
 	}
 
 	// Classify items and build envelopes.
@@ -163,13 +163,13 @@ func processImport(ctx context.Context, vault VaultImporter, export BitwardenExp
 			continue
 		}
 
-		// Duplicate check using final envelope name (server + in-file).
-		if nameSet[env.Name] {
+		key := deduplicationKey(env)
+		if seen[key] {
 			_, _ = fmt.Fprintf(w, "warning: skipped duplicate %q\n", env.Name)
 			result.Duplicates++
 			continue
 		}
-		nameSet[env.Name] = true
+		seen[key] = true
 
 		toImport = append(toImport, env)
 	}
@@ -225,4 +225,11 @@ func processImport(ctx context.Context, vault VaultImporter, export BitwardenExp
 	result.Imported = imported.Load()
 	result.Failed = failed.Load()
 	return &result, nil
+}
+
+func deduplicationKey(e *entity.Envelope) string {
+	if e.Type == entity.EntryTypeLogin && e.Meta != nil {
+		return fmt.Sprintf("login:%s:%s", e.Meta["site"], e.Meta["username"])
+	}
+	return fmt.Sprintf("%d:%s", e.Type, e.Name)
 }

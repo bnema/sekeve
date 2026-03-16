@@ -101,7 +101,12 @@ func RenderTable(w io.Writer, entries []*entity.Envelope) error {
 
 	var rows [][]string
 	for _, e := range entries {
+		shortID := e.ID
+		if len(shortID) > 8 {
+			shortID = shortID[:8]
+		}
 		rows = append(rows, []string{
+			shortID,
 			e.Name,
 			e.Type.String(),
 			e.CreatedAt.Format(time.RFC3339),
@@ -117,7 +122,7 @@ func RenderTable(w io.Writer, entries []*entity.Envelope) error {
 			}
 			return cellStyle
 		}).
-		Headers("NAME", "TYPE", "CREATED").
+		Headers("ID", "NAME", "TYPE", "CREATED").
 		Rows(rows...)
 
 	if _, werr := lipgloss.Fprintln(w, t); werr != nil {

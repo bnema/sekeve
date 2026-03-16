@@ -48,14 +48,14 @@ func NewDmenuCmd() *cobra.Command {
 			}
 
 			if copySelection != "" {
-				name := parseDmenuSelection(copySelection)
-				if name == "" {
+				id := parseDmenuSelection(copySelection)
+				if id == "" {
 					err := fmt.Errorf("could not parse selection: %q", copySelection)
 					_ = styles.RenderError(os.Stderr, err)
 					return err
 				}
 
-				env, err := clientApp.Vault.GetEntry(ctx, name)
+				env, err := clientApp.Vault.GetEntry(ctx, id)
 				if err != nil {
 					_ = styles.RenderError(os.Stderr, err)
 					return err
@@ -121,35 +121,33 @@ func NewDmenuCmd() *cobra.Command {
 func formatDmenuLine(e *entity.Envelope) string {
 	switch e.Type {
 	case entity.EntryTypeLogin:
-		site := e.Meta["site"]
-		username := e.Meta["username"]
-		if site != "" {
-			return fmt.Sprintf("🔑 %s · %s · %s", e.Name, site, username)
-		}
-		return fmt.Sprintf("🔑 %s · %s", e.Name, username)
+		return fmt.Sprintf("🔑 %s\t%s", e.Name, e.ID)
 	case entity.EntryTypeSecret:
-		return fmt.Sprintf("🔒 %s", e.Name)
+		return fmt.Sprintf("🔒 %s\t%s", e.Name, e.ID)
 	case entity.EntryTypeNote:
-		return fmt.Sprintf("📝 %s", e.Name)
+		return fmt.Sprintf("📝 %s\t%s", e.Name, e.ID)
 	default:
-		return e.Name
+		return fmt.Sprintf("%s\t%s", e.Name, e.ID)
 	}
 }
 
 func parseDmenuSelection(selection string) string {
-	// Strip emoji prefix: find first space after any leading non-letter rune
 	s := strings.TrimSpace(selection)
-	// Remove leading emoji and space
+	parts := strings.SplitN(s, "\t", 2)
+	if len(parts) == 2 {
+		return strings.TrimSpace(parts[1])
+	}
+
 	for len(s) > 0 {
 		r := []rune(s)[0]
-		// emoji code points are typically > 0x2000
 		if r > 0x2000 || r == ' ' {
 			s = strings.TrimSpace(string([]rune(s)[1:]))
 		} else {
 			break
 		}
 	}
-	// Take text before first " · "
-	parts := strings.SplitN(s, " · ", 2)
-	return strings.TrimSpace(parts[0])
+	// Fallback for non-tab-separated input: best effort only. The primary path is
+	// "label<TAB>id"; this fallback returns the cleaned token unchanged so pasted
+	// IDs still work, and server-side lookup returns a clear error if it is not an ID.
+	return strings.TrimSpace(s)
 }

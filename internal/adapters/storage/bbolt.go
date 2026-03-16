@@ -17,7 +17,6 @@ import (
 
 var (
 	bucketEntries   = []byte("entries")
-	bucketIndexName = []byte("index_name")
 	bucketIndexType = []byte("index_type")
 	bucketAuth      = []byte("auth")
 
@@ -40,7 +39,7 @@ func NewBboltStore(ctx context.Context, path string) (*BboltStore, error) {
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
-		for _, bucket := range [][]byte{bucketEntries, bucketIndexName, bucketIndexType, bucketAuth} {
+		for _, bucket := range [][]byte{bucketEntries, bucketIndexType, bucketAuth} {
 			if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {
 				return fmt.Errorf("create bucket %q: %w", bucket, err)
 			}
@@ -58,7 +57,6 @@ func NewBboltStore(ctx context.Context, path string) (*BboltStore, error) {
 }
 
 // Create stores a new Envelope, generating a UUIDv7 and setting timestamps.
-// Returns port.ErrAlreadyExists when the name is already taken.
 func (s *BboltStore) Create(ctx context.Context, envelope *entity.Envelope) error {
 	log := zerowrap.FromCtx(ctx)
 
@@ -78,19 +76,9 @@ func (s *BboltStore) Create(ctx context.Context, envelope *entity.Envelope) erro
 	}
 
 	err = s.db.Update(func(tx *bolt.Tx) error {
-		bName := tx.Bucket(bucketIndexName)
-
-		if existing := bName.Get([]byte(envelope.Name)); existing != nil {
-			return port.ErrAlreadyExists
-		}
-
 		bEntries := tx.Bucket(bucketEntries)
 		if err := bEntries.Put([]byte(envelope.ID), data); err != nil {
 			return fmt.Errorf("put entries: %w", err)
-		}
-
-		if err := bName.Put([]byte(envelope.Name), []byte(envelope.ID)); err != nil {
-			return fmt.Errorf("put index_name: %w", err)
 		}
 
 		bType := tx.Bucket(bucketIndexType)
@@ -102,9 +90,6 @@ func (s *BboltStore) Create(ctx context.Context, envelope *entity.Envelope) erro
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, port.ErrAlreadyExists) {
-			return port.ErrAlreadyExists
-		}
 		return log.WrapErr(err, "failed to create entry")
 	}
 
@@ -132,12 +117,12 @@ func (s *BboltStore) Update(ctx context.Context, envelope *entity.Envelope) erro
 
 		// Update type index if type changed.
 		typeIdx := tx.Bucket(bucketIndexType)
-		if oldEnv.Type != envelope.Type || oldEnv.Name != envelope.Name {
-			oldTypeKey := fmt.Sprintf("%d:%s", oldEnv.Type, oldEnv.Name)
+		if oldEnv.Type != envelope.Type {
+			oldTypeKey := fmt.Sprintf("%d:%s", oldEnv.Type, oldEnv.ID)
 			if err := typeIdx.Delete([]byte(oldTypeKey)); err != nil {
 				return fmt.Errorf("delete old index_type: %w", err)
 			}
-			newTypeKey := fmt.Sprintf("%d:%s", envelope.Type, envelope.Name)
+			newTypeKey := fmt.Sprintf("%d:%s", envelope.Type, envelope.ID)
 			if err := typeIdx.Put([]byte(newTypeKey), []byte(envelope.ID)); err != nil {
 				return fmt.Errorf("put index_type: %w", err)
 			}
@@ -168,32 +153,20 @@ func (s *BboltStore) Update(ctx context.Context, envelope *entity.Envelope) erro
 	return nil
 }
 
-// Get retrieves an Envelope by name.
-// Returns port.ErrNotFound when no entry with that name exists.
-func (s *BboltStore) Get(ctx context.Context, name string) (*entity.Envelope, error) {
+// GetByID retrieves an Envelope by its ID.
+// Returns port.ErrNotFound when no entry with that ID exists.
+func (s *BboltStore) GetByID(ctx context.Context, id string) (*entity.Envelope, error) {
 	log := zerowrap.FromCtx(ctx)
 
 	var envelope entity.Envelope
 
 	err := s.db.View(func(tx *bolt.Tx) error {
-		bName := tx.Bucket(bucketIndexName)
-
-		idBytes := bName.Get([]byte(name))
-		if idBytes == nil {
-			return port.ErrNotFound
-		}
-
-		// Copy the ID since bbolt values are only valid within the transaction.
-		id := make([]byte, len(idBytes))
-		copy(id, idBytes)
-
 		bEntries := tx.Bucket(bucketEntries)
-		data := bEntries.Get(id)
+		data := bEntries.Get([]byte(id))
 		if data == nil {
 			return port.ErrNotFound
 		}
 
-		// Copy data before unmarshalling.
 		dataCopy := make([]byte, len(data))
 		copy(dataCopy, data)
 
@@ -234,7 +207,7 @@ func (s *BboltStore) List(ctx context.Context, entryType entity.EntryType) ([]*e
 			})
 		}
 
-		// Prefix scan on index_type: keys are "<type>:<name>".
+		// Prefix scan on index_type: keys are "<type>:<id>".
 		bType := tx.Bucket(bucketIndexType)
 		prefix := []byte(fmt.Sprintf("%d:", int(entryType)))
 		c := bType.Cursor()
@@ -270,47 +243,35 @@ func (s *BboltStore) List(ctx context.Context, entryType entity.EntryType) ([]*e
 	return envelopes, nil
 }
 
-// Delete removes an Envelope and all its index entries.
-// Returns port.ErrNotFound when no entry with that name exists.
-func (s *BboltStore) Delete(ctx context.Context, name string) error {
+// DeleteByID removes an Envelope by its ID and all its index entries.
+// Returns port.ErrNotFound when no entry with that ID exists.
+func (s *BboltStore) DeleteByID(ctx context.Context, id string) error {
 	log := zerowrap.FromCtx(ctx)
 
 	err := s.db.Update(func(tx *bolt.Tx) error {
-		bName := tx.Bucket(bucketIndexName)
+		bEntries := tx.Bucket(bucketEntries)
 
-		idBytes := bName.Get([]byte(name))
-		if idBytes == nil {
+		data := bEntries.Get([]byte(id))
+		if data == nil {
 			return port.ErrNotFound
 		}
 
-		id := make([]byte, len(idBytes))
-		copy(id, idBytes)
+		dataCopy := make([]byte, len(data))
+		copy(dataCopy, data)
 
-		// Fetch entry to get type for type-index removal.
-		bEntries := tx.Bucket(bucketEntries)
-		data := bEntries.Get(id)
-		if data != nil {
-			dataCopy := make([]byte, len(data))
-			copy(dataCopy, data)
-
-			var env entity.Envelope
-			if err := json.Unmarshal(dataCopy, &env); err != nil {
-				log.Warn().Err(err).Str("name", name).Msg("failed to unmarshal entry during delete, type index may be stale")
-			} else {
-				bType := tx.Bucket(bucketIndexType)
-				typeKey := typeIndexKey(&env)
-				if err := bType.Delete(typeKey); err != nil {
-					return fmt.Errorf("delete index_type: %w", err)
-				}
+		var env entity.Envelope
+		if err := json.Unmarshal(dataCopy, &env); err != nil {
+			log.Warn().Err(err).Str("id", id).Msg("failed to unmarshal entry during delete, type index may be stale")
+		} else {
+			bType := tx.Bucket(bucketIndexType)
+			typeKey := typeIndexKey(&env)
+			if err := bType.Delete(typeKey); err != nil {
+				return fmt.Errorf("delete index_type: %w", err)
 			}
 		}
 
-		if err := bEntries.Delete(id); err != nil {
+		if err := bEntries.Delete([]byte(id)); err != nil {
 			return fmt.Errorf("delete entries: %w", err)
-		}
-
-		if err := bName.Delete([]byte(name)); err != nil {
-			return fmt.Errorf("delete index_name: %w", err)
 		}
 
 		return nil
@@ -373,7 +334,7 @@ func (s *BboltStore) Close(_ context.Context) error {
 }
 
 // typeIndexKey returns the composite key used in the type index.
-// Format: "<type_int>:<name>"
+// Format: "<type_int>:<id>"
 func typeIndexKey(envelope *entity.Envelope) []byte {
-	return []byte(fmt.Sprintf("%d:%s", envelope.Type, envelope.Name))
+	return []byte(fmt.Sprintf("%d:%s", envelope.Type, envelope.ID))
 }

@@ -75,12 +75,8 @@ func TestCreateAndGet(t *testing.T) {
 			},
 		},
 		{
-			name: "empty name fails",
-			entry: &sekevev1.Entry{
-				Name:    "",
-				Type:    sekevev1.EntryType_ENTRY_TYPE_NOTE,
-				Payload: []byte("note"),
-			},
+			name:    "nil entry fails",
+			entry:   nil,
 			wantErr: codes.InvalidArgument,
 		},
 	}
@@ -101,8 +97,8 @@ func TestCreateAndGet(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotEmpty(t, resp.Id)
 
-			// Retrieve the entry.
-			got, err := client.GetEntry(ctx, &sekevev1.GetEntryRequest{Name: tc.entry.Name})
+			// Retrieve the entry by ID.
+			got, err := client.GetEntry(ctx, &sekevev1.GetEntryRequest{Id: resp.Id})
 			require.NoError(t, err)
 			assert.Equal(t, tc.entry.Name, got.Name)
 			assert.Equal(t, tc.entry.Type, got.Type)
@@ -154,7 +150,7 @@ func TestDeleteEntry(t *testing.T) {
 	ctx := authedCtx()
 
 	// Create entry to delete.
-	_, err := client.CreateEntry(ctx, &sekevev1.CreateEntryRequest{
+	resp, err := client.CreateEntry(ctx, &sekevev1.CreateEntryRequest{
 		Entry: &sekevev1.Entry{
 			Name:    "to-delete",
 			Type:    sekevev1.EntryType_ENTRY_TYPE_NOTE,
@@ -164,12 +160,12 @@ func TestDeleteEntry(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("delete existing", func(t *testing.T) {
-		_, err := client.DeleteEntry(ctx, &sekevev1.DeleteEntryRequest{Name: "to-delete"})
+		_, err := client.DeleteEntry(ctx, &sekevev1.DeleteEntryRequest{Id: resp.Id})
 		require.NoError(t, err)
 	})
 
 	t.Run("delete non-existent returns NotFound", func(t *testing.T) {
-		_, err := client.DeleteEntry(ctx, &sekevev1.DeleteEntryRequest{Name: "does-not-exist"})
+		_, err := client.DeleteEntry(ctx, &sekevev1.DeleteEntryRequest{Id: "does-not-exist"})
 		require.Error(t, err)
 		st, ok := status.FromError(err)
 		require.True(t, ok)
@@ -177,26 +173,23 @@ func TestDeleteEntry(t *testing.T) {
 	})
 }
 
-func TestCreateDuplicate(t *testing.T) {
+func TestCreateDuplicateNameAllowed(t *testing.T) {
 	client, cleanup := setupTestServer(t)
 	defer cleanup()
 
 	ctx := authedCtx()
 
-	entry := &sekevev1.CreateEntryRequest{
-		Entry: &sekevev1.Entry{
-			Name:    "duplicate",
-			Type:    sekevev1.EntryType_ENTRY_TYPE_SECRET,
-			Payload: []byte("data"),
-		},
+	entry := &sekevev1.Entry{
+		Name:    "duplicate",
+		Type:    sekevev1.EntryType_ENTRY_TYPE_SECRET,
+		Payload: []byte("data"),
 	}
 
-	_, err := client.CreateEntry(ctx, entry)
+	resp1, err := client.CreateEntry(ctx, &sekevev1.CreateEntryRequest{Entry: entry})
 	require.NoError(t, err)
 
-	_, err = client.CreateEntry(ctx, entry)
-	require.Error(t, err)
-	st, ok := status.FromError(err)
-	require.True(t, ok)
-	assert.Equal(t, codes.AlreadyExists, st.Code())
+	resp2, err := client.CreateEntry(ctx, &sekevev1.CreateEntryRequest{Entry: entry})
+	require.NoError(t, err)
+
+	assert.NotEqual(t, resp1.Id, resp2.Id)
 }

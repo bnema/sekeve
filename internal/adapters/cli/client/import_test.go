@@ -44,7 +44,11 @@ func TestProcessImport_ListEntriesFails(t *testing.T) {
 
 func TestProcessImport_ServerDuplicate(t *testing.T) {
 	vault := &mockVault{
-		existing: []*entity.Envelope{{Name: "GitHub (a)"}},
+		existing: []*entity.Envelope{{
+			Name: "GitHub (a)",
+			Type: entity.EntryTypeLogin,
+			Meta: map[string]string{"site": "", "username": "a"},
+		}},
 	}
 	export := BitwardenExport{
 		Items: []BitwardenItem{
@@ -138,7 +142,11 @@ func TestProcessImport_EmptyName(t *testing.T) {
 
 func TestProcessImport_MixedImport(t *testing.T) {
 	vault := &mockVault{
-		existing: []*entity.Envelope{{Name: "Login1 (a)"}},
+		existing: []*entity.Envelope{{
+			Name: "Login1 (a)",
+			Type: entity.EntryTypeLogin,
+			Meta: map[string]string{"site": "", "username": "a"},
+		}},
 	}
 	export := BitwardenExport{
 		Items: []BitwardenItem{
@@ -209,5 +217,18 @@ func TestProcessImport_EmptyItems(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "nothing to import") {
 		t.Errorf("output = %q, want to contain 'nothing to import'", buf.String())
+	}
+}
+
+func TestDeduplicationKey_LoginWithNilMetaFallsBackToName(t *testing.T) {
+	env := &entity.Envelope{
+		Type: entity.EntryTypeLogin,
+		Name: "GitHub",
+	}
+
+	got := deduplicationKey(env)
+	want := fmt.Sprintf("%d:%s", entity.EntryTypeLogin, "GitHub")
+	if got != want {
+		t.Fatalf("deduplicationKey() = %q, want %q", got, want)
 	}
 }

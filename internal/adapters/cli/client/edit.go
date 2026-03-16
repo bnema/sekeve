@@ -13,13 +13,14 @@ import (
 )
 
 func NewEditCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "edit <name>",
+	var id, domain, email string
+
+	cmd := &cobra.Command{
+		Use:   "edit [query]",
 		Short: "Edit an existing entry",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			name := args[0]
 
 			cfg := cliconfig.ConfigFromCmd(cmd)
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
@@ -33,10 +34,49 @@ func NewEditCmd() *cobra.Command {
 				}
 			}()
 
-			env, err := clientApp.Vault.GetEntry(ctx, name)
-			if err != nil {
-				_ = styles.RenderError(os.Stderr, err)
-				return err
+			opts := resolveOpts{ID: id, Domain: domain, Email: email}
+			if len(args) > 0 {
+				opts.Query = args[0]
+			}
+
+			var env *entity.Envelope
+			if opts.ID != "" {
+				env, err = clientApp.Vault.GetEntry(ctx, opts.ID)
+				if err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+					return err
+				}
+			} else {
+				if opts.Query == "" && opts.Domain == "" && opts.Email == "" {
+					return fmt.Errorf("provide a search query, --domain, --email, or --id")
+				}
+
+				all, err := clientApp.Vault.ListEntries(ctx, entity.EntryTypeUnspecified)
+				if err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+					return err
+				}
+
+				env, err = resolveEntry(all, opts)
+				if err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+					return err
+				}
+
+				env, err = clientApp.Vault.GetEntry(ctx, env.ID)
+				if err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+					return err
+				}
+			}
+
+			if env == nil {
+				return fmt.Errorf("entry not found")
+			}
+			targetName := env.Name
+
+			if env.Meta == nil {
+				env.Meta = map[string]string{}
 			}
 
 			var updateErr error
@@ -60,6 +100,7 @@ func NewEditCmd() *cobra.Command {
 					}
 					env.Payload = newPayload
 					env.Meta = map[string]string{"username": login.Username, "site": login.Site}
+					env.Name = deriveLoginName(login.Site, login.Username)
 
 				case entity.EntryTypeSecret:
 					var secret entity.Secret
@@ -115,9 +156,17 @@ func NewEditCmd() *cobra.Command {
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, env)
 			}
-			return styles.RenderSuccess(os.Stdout, fmt.Sprintf("Entry %q updated", name))
+			if env.Name != "" {
+				targetName = env.Name
+			}
+			return styles.RenderSuccess(os.Stdout, fmt.Sprintf("Entry %q updated", targetName))
 		},
 	}
+
+	cmd.Flags().StringVar(&id, "id", "", "Edit entry by exact ID")
+	cmd.Flags().StringVar(&domain, "domain", "", "Filter by domain/site")
+	cmd.Flags().StringVar(&email, "email", "", "Filter by username/email")
+	return cmd
 }
 
 func editInEditor(content string) (string, error) {

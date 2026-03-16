@@ -146,36 +146,36 @@ func (_c *MockStoragePort_Create_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
-// Delete provides a mock function for the type MockStoragePort
-func (_mock *MockStoragePort) Delete(ctx context.Context, name string) error {
-	ret := _mock.Called(ctx, name)
+// DeleteByID provides a mock function for the type MockStoragePort
+func (_mock *MockStoragePort) DeleteByID(ctx context.Context, id string) error {
+	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Delete")
+		panic("no return value specified for DeleteByID")
 	}
 
 	var r0 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = returnFunc(ctx, name)
+		r0 = returnFunc(ctx, id)
 	} else {
 		r0 = ret.Error(0)
 	}
 	return r0
 }
 
-// MockStoragePort_Delete_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Delete'
-type MockStoragePort_Delete_Call struct {
+// MockStoragePort_DeleteByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteByID'
+type MockStoragePort_DeleteByID_Call struct {
 	*mock.Call
 }
 
-// Delete is a helper method to define mock.On call
+// DeleteByID is a helper method to define mock.On call
 //   - ctx context.Context
-//   - name string
-func (_e *MockStoragePort_Expecter) Delete(ctx interface{}, name interface{}) *MockStoragePort_Delete_Call {
-	return &MockStoragePort_Delete_Call{Call: _e.mock.On("Delete", ctx, name)}
+//   - id string
+func (_e *MockStoragePort_Expecter) DeleteByID(ctx interface{}, id interface{}) *MockStoragePort_DeleteByID_Call {
+	return &MockStoragePort_DeleteByID_Call{Call: _e.mock.On("DeleteByID", ctx, id)}
 }
 
-func (_c *MockStoragePort_Delete_Call) Run(run func(ctx context.Context, name string)) *MockStoragePort_Delete_Call {
+func (_c *MockStoragePort_DeleteByID_Call) Run(run func(ctx context.Context, id string)) *MockStoragePort_DeleteByID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -193,57 +193,57 @@ func (_c *MockStoragePort_Delete_Call) Run(run func(ctx context.Context, name st
 	return _c
 }
 
-func (_c *MockStoragePort_Delete_Call) Return(err error) *MockStoragePort_Delete_Call {
+func (_c *MockStoragePort_DeleteByID_Call) Return(err error) *MockStoragePort_DeleteByID_Call {
 	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockStoragePort_Delete_Call) RunAndReturn(run func(ctx context.Context, name string) error) *MockStoragePort_Delete_Call {
+func (_c *MockStoragePort_DeleteByID_Call) RunAndReturn(run func(ctx context.Context, id string) error) *MockStoragePort_DeleteByID_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// Get provides a mock function for the type MockStoragePort
-func (_mock *MockStoragePort) Get(ctx context.Context, name string) (*entity.Envelope, error) {
-	ret := _mock.Called(ctx, name)
+// GetByID provides a mock function for the type MockStoragePort
+func (_mock *MockStoragePort) GetByID(ctx context.Context, id string) (*entity.Envelope, error) {
+	ret := _mock.Called(ctx, id)
 
 	if len(ret) == 0 {
-		panic("no return value specified for Get")
+		panic("no return value specified for GetByID")
 	}
 
 	var r0 *entity.Envelope
 	var r1 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*entity.Envelope, error)); ok {
-		return returnFunc(ctx, name)
+		return returnFunc(ctx, id)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *entity.Envelope); ok {
-		r0 = returnFunc(ctx, name)
+		r0 = returnFunc(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*entity.Envelope)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = returnFunc(ctx, name)
+		r1 = returnFunc(ctx, id)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// MockStoragePort_Get_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Get'
-type MockStoragePort_Get_Call struct {
+// MockStoragePort_GetByID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetByID'
+type MockStoragePort_GetByID_Call struct {
 	*mock.Call
 }
 
-// Get is a helper method to define mock.On call
+// GetByID is a helper method to define mock.On call
 //   - ctx context.Context
-//   - name string
-func (_e *MockStoragePort_Expecter) Get(ctx interface{}, name interface{}) *MockStoragePort_Get_Call {
-	return &MockStoragePort_Get_Call{Call: _e.mock.On("Get", ctx, name)}
+//   - id string
+func (_e *MockStoragePort_Expecter) GetByID(ctx interface{}, id interface{}) *MockStoragePort_GetByID_Call {
+	return &MockStoragePort_GetByID_Call{Call: _e.mock.On("GetByID", ctx, id)}
 }
 
-func (_c *MockStoragePort_Get_Call) Run(run func(ctx context.Context, name string)) *MockStoragePort_Get_Call {
+func (_c *MockStoragePort_GetByID_Call) Run(run func(ctx context.Context, id string)) *MockStoragePort_GetByID_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -261,12 +261,12 @@ func (_c *MockStoragePort_Get_Call) Run(run func(ctx context.Context, name strin
 	return _c
 }
 
-func (_c *MockStoragePort_Get_Call) Return(envelope *entity.Envelope, err error) *MockStoragePort_Get_Call {
+func (_c *MockStoragePort_GetByID_Call) Return(envelope *entity.Envelope, err error) *MockStoragePort_GetByID_Call {
 	_c.Call.Return(envelope, err)
 	return _c
 }
 
-func (_c *MockStoragePort_Get_Call) RunAndReturn(run func(ctx context.Context, name string) (*entity.Envelope, error)) *MockStoragePort_Get_Call {
+func (_c *MockStoragePort_GetByID_Call) RunAndReturn(run func(ctx context.Context, id string) (*entity.Envelope, error)) *MockStoragePort_GetByID_Call {
 	_c.Call.Return(run)
 	return _c
 }

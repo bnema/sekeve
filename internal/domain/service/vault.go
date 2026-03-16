@@ -43,14 +43,14 @@ func (s *VaultService) AddEntry(ctx context.Context, envelope *entity.Envelope) 
 	return nil
 }
 
-func (s *VaultService) GetEntry(ctx context.Context, name string) (*entity.Envelope, error) {
+func (s *VaultService) GetEntry(ctx context.Context, id string) (*entity.Envelope, error) {
 	log := zerowrap.FromCtx(ctx)
 	ctx = zerowrap.CtxWithFields(ctx, map[string]any{
 		zerowrap.FieldLayer:   "domain",
 		zerowrap.FieldUseCase: "GetEntry",
 	})
 
-	envelope, err := s.sync.GetEntry(ctx, name)
+	envelope, err := s.sync.GetEntry(ctx, id)
 	if err != nil {
 		return nil, log.WrapErr(err, "failed to get entry")
 	}
@@ -75,14 +75,14 @@ func (s *VaultService) ListEntries(ctx context.Context, entryType entity.EntryTy
 	return entries, nil
 }
 
-func (s *VaultService) DeleteEntry(ctx context.Context, name string) error {
+func (s *VaultService) DeleteEntry(ctx context.Context, id string) error {
 	log := zerowrap.FromCtx(ctx)
 	ctx = zerowrap.CtxWithFields(ctx, map[string]any{
 		zerowrap.FieldLayer:   "domain",
 		zerowrap.FieldUseCase: "DeleteEntry",
 	})
 
-	if err := s.sync.DeleteEntry(ctx, name); err != nil {
+	if err := s.sync.DeleteEntry(ctx, id); err != nil {
 		return log.WrapErr(err, "failed to delete entry")
 	}
 	return nil
