@@ -64,7 +64,7 @@ func TestAddEntry(t *testing.T) {
 				Type:    entity.EntryTypeSecret,
 				Payload: []byte("plaintext"),
 			},
-			setupMock: func(crypto *mocks.MockCryptoPort, syncP *mocks.MockSyncPort, env *entity.Envelope) {
+			setupMock: func(crypto *mocks.MockCryptoPort, _ *mocks.MockSyncPort, env *entity.Envelope) {
 				crypto.EXPECT().Encrypt(mock.Anything, env.Payload, testKeyID).Return(nil, errors.New("gpg error"))
 			},
 			wantErr: errors.New("gpg error"),

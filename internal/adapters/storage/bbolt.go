@@ -132,7 +132,9 @@ func (s *BboltStore) Update(ctx context.Context, envelope *entity.Envelope) erro
 		typeIdx := tx.Bucket(bucketIndexType)
 		if oldEnv.Type != envelope.Type || oldEnv.Name != envelope.Name {
 			oldTypeKey := fmt.Sprintf("%d:%s", oldEnv.Type, oldEnv.Name)
-			typeIdx.Delete([]byte(oldTypeKey))
+			if err := typeIdx.Delete([]byte(oldTypeKey)); err != nil {
+				return fmt.Errorf("delete old index_type: %w", err)
+			}
 			newTypeKey := fmt.Sprintf("%d:%s", envelope.Type, envelope.Name)
 			if err := typeIdx.Put([]byte(newTypeKey), []byte(envelope.ID)); err != nil {
 				return fmt.Errorf("put index_type: %w", err)

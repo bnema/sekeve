@@ -98,7 +98,9 @@ func ConnectAndAuth(ctx context.Context, serverAddr, gpgKeyID string) (*app.Clie
 	}
 	token, err := clientApp.Vault.Authenticate(ctx)
 	if err != nil {
-		clientApp.Close(ctx)
+		if closeErr := clientApp.Close(ctx); closeErr != nil {
+			log.Warn().Err(closeErr).Msg("failed to close client app after auth failure")
+		}
 		return nil, log.WrapErr(err, "authentication failed")
 	}
 	if saveErr := SaveSession(&SessionCache{Token: token, ExpiresAt: time.Now().Add(1 * time.Hour)}); saveErr != nil {

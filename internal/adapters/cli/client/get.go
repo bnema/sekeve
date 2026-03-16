@@ -22,14 +22,18 @@ func NewGetCmd() *cobra.Command {
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() {
+				if err := clientApp.Close(ctx); err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+				}
+			}()
 
 			env, err := clientApp.Vault.GetEntry(ctx, name)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
@@ -58,7 +62,7 @@ func NewGetCmd() *cobra.Command {
 					if login.Notes != "" {
 						fields = append(fields, styles.Field{Label: "Notes", Value: login.Notes})
 					}
-					styles.RenderEntry(os.Stdout, env, fields)
+					displayErr = styles.RenderEntry(os.Stdout, env, fields)
 
 				case entity.EntryTypeSecret:
 					var secret entity.Secret
@@ -66,7 +70,7 @@ func NewGetCmd() *cobra.Command {
 						displayErr = err
 						return
 					}
-					styles.RenderEntry(os.Stdout, env, []styles.Field{
+					displayErr = styles.RenderEntry(os.Stdout, env, []styles.Field{
 						{Label: "Value", Value: secret.Value},
 					})
 
@@ -76,20 +80,22 @@ func NewGetCmd() *cobra.Command {
 						displayErr = err
 						return
 					}
-					styles.RenderEntry(os.Stdout, env, []styles.Field{
+					displayErr = styles.RenderEntry(os.Stdout, env, []styles.Field{
 						{Label: "Content", Value: note.Content},
 					})
 
 				default:
-					fmt.Fprintf(os.Stdout, "%s\n", string(plaintext))
+					if _, err := fmt.Fprintf(os.Stdout, "%s\n", string(plaintext)); err != nil {
+						displayErr = err
+					}
 				}
 			})
 			if decryptErr != nil {
-				styles.RenderError(os.Stderr, decryptErr)
+				_ = styles.RenderError(os.Stderr, decryptErr)
 				return decryptErr
 			}
 			if displayErr != nil {
-				styles.RenderError(os.Stderr, displayErr)
+				_ = styles.RenderError(os.Stderr, displayErr)
 				return displayErr
 			}
 			return nil

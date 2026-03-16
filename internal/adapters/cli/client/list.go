@@ -15,28 +15,31 @@ func NewListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all entries",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() {
+				if err := clientApp.Close(ctx); err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+				}
+			}()
 
 			entryType := entity.ParseEntryType(entryTypeStr)
 			entries, err := clientApp.Vault.ListEntries(ctx, entryType)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, entries)
 			}
-			styles.RenderTable(os.Stdout, entries)
-			return nil
+			return styles.RenderTable(os.Stdout, entries)
 		},
 	}
 

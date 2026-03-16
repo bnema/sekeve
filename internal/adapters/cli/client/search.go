@@ -21,14 +21,18 @@ func NewSearchCmd() *cobra.Command {
 
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cliconfig.ServerAddr, cliconfig.GPGKeyID)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() {
+				if err := clientApp.Close(ctx); err != nil {
+					_ = styles.RenderError(os.Stderr, err)
+				}
+			}()
 
 			all, err := clientApp.Vault.ListEntries(ctx, entity.EntryTypeUnspecified)
 			if err != nil {
-				styles.RenderError(os.Stderr, err)
+				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
 
@@ -42,8 +46,7 @@ func NewSearchCmd() *cobra.Command {
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, matched)
 			}
-			styles.RenderTable(os.Stdout, matched)
-			return nil
+			return styles.RenderTable(os.Stdout, matched)
 		},
 	}
 }

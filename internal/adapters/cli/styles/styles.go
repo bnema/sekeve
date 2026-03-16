@@ -42,14 +42,24 @@ var (
 			Foreground(ColorHighlight)
 )
 
-func RenderError(w io.Writer, err error) {
-	lipgloss.Fprint(w, ErrorStyle.Render("Error: "+err.Error()))
-	fmt.Fprintln(w)
+func RenderError(w io.Writer, err error) error {
+	if _, werr := lipgloss.Fprint(w, ErrorStyle.Render("Error: "+err.Error())); werr != nil {
+		return werr
+	}
+	if _, werr := fmt.Fprintln(w); werr != nil {
+		return werr
+	}
+	return nil
 }
 
-func RenderSuccess(w io.Writer, msg string) {
-	lipgloss.Fprint(w, SuccessStyle.Render("✓ "+msg))
-	fmt.Fprintln(w)
+func RenderSuccess(w io.Writer, msg string) error {
+	if _, werr := lipgloss.Fprint(w, SuccessStyle.Render("✓ "+msg)); werr != nil {
+		return werr
+	}
+	if _, werr := fmt.Fprintln(w); werr != nil {
+		return werr
+	}
+	return nil
 }
 
 // Field is a labeled key-value pair for ordered display in RenderEntry.
@@ -58,14 +68,19 @@ type Field struct {
 	Value string
 }
 
-func RenderEntry(w io.Writer, env *entity.Envelope, fields []Field) {
-	lipgloss.Fprintln(w, TitleStyle.Render(env.Name)+" "+MutedStyle.Render("("+env.Type.String()+")"))
-	for _, f := range fields {
-		lipgloss.Fprintln(w, LabelStyle.Render(f.Label)+ValueStyle.Render(f.Value))
+func RenderEntry(w io.Writer, env *entity.Envelope, fields []Field) error {
+	if _, werr := lipgloss.Fprintln(w, TitleStyle.Render(env.Name)+" "+MutedStyle.Render("("+env.Type.String()+")")); werr != nil {
+		return werr
 	}
+	for _, f := range fields {
+		if _, werr := lipgloss.Fprintln(w, LabelStyle.Render(f.Label)+ValueStyle.Render(f.Value)); werr != nil {
+			return werr
+		}
+	}
+	return nil
 }
 
-func RenderTable(w io.Writer, entries []*entity.Envelope) {
+func RenderTable(w io.Writer, entries []*entity.Envelope) error {
 	headerStyle := lipgloss.NewStyle().
 		Foreground(ColorPrimary).
 		Bold(true).
@@ -85,7 +100,7 @@ func RenderTable(w io.Writer, entries []*entity.Envelope) {
 	t := table.New().
 		Border(lipgloss.RoundedBorder()).
 		BorderStyle(lipgloss.NewStyle().Foreground(ColorPrimary)).
-		StyleFunc(func(row, col int) lipgloss.Style {
+		StyleFunc(func(row, _ int) lipgloss.Style {
 			if row == table.HeaderRow {
 				return headerStyle
 			}
@@ -94,7 +109,10 @@ func RenderTable(w io.Writer, entries []*entity.Envelope) {
 		Headers("NAME", "TYPE", "CREATED").
 		Rows(rows...)
 
-	lipgloss.Fprintln(w, t)
+	if _, werr := lipgloss.Fprintln(w, t); werr != nil {
+		return werr
+	}
+	return nil
 }
 
 func RenderJSON(w io.Writer, v any) error {

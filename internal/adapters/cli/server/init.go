@@ -17,7 +17,7 @@ func NewInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize the server with a GPG key",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			log := zerowrap.FromCtx(ctx)
 
@@ -37,7 +37,11 @@ func NewInitCmd() *cobra.Command {
 				log.Error().Err(err).Msg("failed to open storage")
 				return err
 			}
-			defer store.Close(context.Background())
+			defer func() {
+				if err := store.Close(context.Background()); err != nil {
+					log.Error().Err(err).Msg("failed to close store")
+				}
+			}()
 
 			if err := store.StoreAuthKey(ctx, pubKey); err != nil {
 				log.Error().Err(err).Msg("failed to store auth key")
@@ -51,6 +55,8 @@ func NewInitCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&gpgKeyID, "gpg-key", "", "GPG key ID to register (required)")
 	cmd.Flags().StringVar(&dataPath, "data", "./sekeve.db", "Path to bbolt database")
-	cmd.MarkFlagRequired("gpg-key")
+	if err := cmd.MarkFlagRequired("gpg-key"); err != nil {
+		panic(fmt.Sprintf("failed to mark gpg-key flag as required: %v", err))
+	}
 	return cmd
 }

@@ -46,8 +46,8 @@ func setupTestServer(t *testing.T) (sekevev1.SekeveClient, func()) {
 
 	client := sekevev1.NewSekeveClient(conn)
 	return client, func() {
-		conn.Close()
-		store.Close(ctx)
+		require.NoError(t, conn.Close())
+		require.NoError(t, store.Close(ctx))
 	}
 }
 
