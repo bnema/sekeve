@@ -19,6 +19,9 @@ make install
 
 ## Server setup
 
+> [!WARNING]
+> The gRPC server uses **plaintext HTTP/2** by default and does not terminate TLS. Do not expose it directly to the internet. Place it behind a reverse proxy that handles TLS, such as Caddy, nginx with a certificate, or Cloudflare proxy. All data on the wire is GPG-encrypted, but connection metadata and the auth handshake are not protected without TLS.
+
 ### Docker Compose (recommended)
 
 ```bash
@@ -132,10 +135,6 @@ Delete the export file after import - it contains plaintext credentials.
 ## Auth
 
 Authentication uses GPG challenge-response. The server encrypts a nonce with your public key; the client decrypts it to prove identity. No passwords. Session tokens are cached locally for one hour.
-
-## Security
-
-**Transport security:** The gRPC server uses plaintext HTTP/2 by default and does not terminate TLS. Do not expose it directly to the internet. Place it behind a reverse proxy that handles TLS - for example Caddy, nginx with a certificate, or Cloudflare Tunnel. All data on the wire is GPG-encrypted, but the connection metadata and auth handshake are not protected without TLS.
 
 ## Development
 
