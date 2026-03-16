@@ -1,0 +1,6 @@
+name: Dependabot Auto-Merge
+on: pull_request
+
+jobs:
+  auto-merge:
+    uses: bnema/gh-actions/.github/workflows/dependabot-auto-merge.yml@main
