@@ -80,7 +80,7 @@ func TestViperConfig_SessionTokenRoundTrip(t *testing.T) {
 
 	// No session yet
 	_, err = cfg.SessionToken(ctx)
-	assert.Error(t, err)
+	assert.ErrorIs(t, err, config.ErrNoSession)
 
 	// Save a session with 1 hour TTL
 	require.NoError(t, cfg.SaveSessionToken(ctx, "my-token-123", 3600))
