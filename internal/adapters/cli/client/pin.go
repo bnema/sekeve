@@ -7,7 +7,6 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/cli/styles"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 func NewPINCmd() *cobra.Command {
@@ -19,16 +18,6 @@ func NewPINCmd() *cobra.Command {
 	cmd.AddCommand(newPINChangeCmd())
 	cmd.AddCommand(newPINDisableCmd())
 	return cmd
-}
-
-func readPIN(prompt string) (string, error) {
-	fmt.Fprint(os.Stderr, prompt)
-	pin, err := term.ReadPassword(int(os.Stdin.Fd()))
-	fmt.Fprintln(os.Stderr)
-	if err != nil {
-		return "", err
-	}
-	return string(pin), nil
 }
 
 func newPINSetCmd() *cobra.Command {
@@ -53,11 +42,11 @@ func newPINSetCmd() *cobra.Command {
 				return fmt.Errorf("PIN already set")
 			}
 
-			pin, err := readPIN("New PIN: ")
+			pin, err := cliconfig.ReadPassword("New PIN: ")
 			if err != nil {
 				return err
 			}
-			confirm, err := readPIN("Confirm PIN: ")
+			confirm, err := cliconfig.ReadPassword("Confirm PIN: ")
 			if err != nil {
 				return err
 			}
@@ -90,15 +79,15 @@ func newPINChangeCmd() *cobra.Command {
 			}
 			defer clientApp.Close(ctx)
 
-			currentPIN, err := readPIN("Current PIN: ")
+			currentPIN, err := cliconfig.ReadPassword("Current PIN: ")
 			if err != nil {
 				return err
 			}
-			newPIN, err := readPIN("New PIN: ")
+			newPIN, err := cliconfig.ReadPassword("New PIN: ")
 			if err != nil {
 				return err
 			}
-			confirm, err := readPIN("Confirm new PIN: ")
+			confirm, err := cliconfig.ReadPassword("Confirm new PIN: ")
 			if err != nil {
 				return err
 			}
@@ -131,8 +120,7 @@ func newPINDisableCmd() *cobra.Command {
 			}
 			defer clientApp.Close(ctx)
 
-			_ = styles.RenderError(os.Stderr, fmt.Errorf("not implemented yet"))
-			return fmt.Errorf("not implemented")
+			return fmt.Errorf("not implemented yet")
 		},
 	}
 }

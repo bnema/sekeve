@@ -291,6 +291,7 @@ func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*seke
 // Unlock exchanges a one-time unlock ticket and PIN for a session token.
 // This RPC is unauthenticated (listed in skipAuthMethods).
 func (s *Server) Unlock(ctx context.Context, req *sekevev1.UnlockRequest) (*sekevev1.UnlockResponse, error) {
+	// Verify PIN before consuming the ticket so the user can retry on wrong PIN.
 	hash, salt, err := s.storage.GetPINHash(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "no PIN configured")

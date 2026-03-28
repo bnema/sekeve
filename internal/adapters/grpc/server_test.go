@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func setupTestServer(t *testing.T) (sekevev1.SekeveClient, func()) {
+func setupTestServerWithAuth(t *testing.T) (sekevev1.SekeveClient, *grpcadapter.AuthManager, func()) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -45,10 +45,15 @@ func setupTestServer(t *testing.T) (sekevev1.SekeveClient, func()) {
 	require.NoError(t, err)
 
 	client := sekevev1.NewSekeveClient(conn)
-	return client, func() {
+	return client, auth, func() {
 		require.NoError(t, conn.Close())
 		require.NoError(t, store.Close(ctx))
 	}
+}
+
+func setupTestServer(t *testing.T) (sekevev1.SekeveClient, func()) {
+	client, _, cleanup := setupTestServerWithAuth(t)
+	return client, cleanup
 }
 
 // authedCtx returns a context with "authorization: test-token" in outgoing metadata.
@@ -192,40 +197,6 @@ func TestCreateDuplicateNameAllowed(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotEqual(t, resp1.Id, resp2.Id)
-}
-
-// setupTestServerWithAuth is like setupTestServer but also returns the AuthManager so
-// tests that need to generate unlock tickets can do so directly.
-func setupTestServerWithAuth(t *testing.T) (sekevev1.SekeveClient, *grpcadapter.AuthManager, func()) {
-	t.Helper()
-
-	ctx := context.Background()
-	store, err := storage.NewBboltStore(ctx, filepath.Join(t.TempDir(), "test.db"))
-	require.NoError(t, err)
-
-	auth := grpcadapter.NewAuthManager([]byte("test-public-key"))
-	auth.SetTestToken("test-token")
-
-	srv := grpcadapter.NewServer(ctx, store, auth)
-
-	lis := bufconn.Listen(1024 * 1024)
-	go func() {
-		_ = srv.ServeListener(ctx, lis)
-	}()
-
-	conn, err := grpc.NewClient("passthrough:///bufconn",
-		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
-			return lis.DialContext(ctx)
-		}),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	require.NoError(t, err)
-
-	client := sekevev1.NewSekeveClient(conn)
-	return client, auth, func() {
-		require.NoError(t, conn.Close())
-		require.NoError(t, store.Close(ctx))
-	}
 }
 
 // --- HasPIN tests ---

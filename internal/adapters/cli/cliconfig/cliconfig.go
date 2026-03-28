@@ -41,6 +41,17 @@ func WithConfig(ctx context.Context, cfg port.ConfigPort) context.Context {
 	return context.WithValue(ctx, configKey, cfg)
 }
 
+// ReadPassword prints the prompt to stderr, reads a password without echo, and returns it.
+func ReadPassword(prompt string) (string, error) {
+	fmt.Fprint(os.Stderr, prompt)
+	b, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
 func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, error) {
 	log := zerowrap.FromCtx(ctx)
 
@@ -70,35 +81,30 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		return nil, log.WrapErr(err, "authentication failed")
 	}
 
+	cacheSession := func(token string, expiresAt time.Time) {
+		clientApp.Sync.SetToken(token)
+		if saveErr := cfg.SaveSessionToken(ctx, token, int64(time.Until(expiresAt).Seconds())); saveErr != nil {
+			log.Warn().Err(saveErr).Msg("failed to cache session")
+		}
+	}
+
 	if authResult.RequiresPIN {
-		// Prompt for PIN.
-		fmt.Fprint(os.Stderr, "Unlock PIN: ")
-		pinBytes, pinErr := term.ReadPassword(int(os.Stdin.Fd()))
-		fmt.Fprintln(os.Stderr)
+		pin, pinErr := ReadPassword("Unlock PIN: ")
 		if pinErr != nil {
 			clientApp.Close(ctx)
 			return nil, fmt.Errorf("failed to read PIN: %w", pinErr)
 		}
 
-		token, expiresAt, unlockErr := clientApp.Sync.Unlock(ctx, authResult.UnlockTicket, string(pinBytes))
-		clear(pinBytes)
+		token, expiresAt, unlockErr := clientApp.Sync.Unlock(ctx, authResult.UnlockTicket, pin)
 		if unlockErr != nil {
 			clientApp.Close(ctx)
 			return nil, log.WrapErr(unlockErr, "unlock failed")
 		}
 
-		clientApp.Sync.SetToken(token)
-		if saveErr := cfg.SaveSessionToken(ctx, token, int64(time.Until(expiresAt).Seconds())); saveErr != nil {
-			log.Warn().Err(saveErr).Msg("failed to cache session")
-		}
+		cacheSession(token, expiresAt)
 		return clientApp, nil
 	}
 
-	// No PIN required — use token directly.
-	clientApp.Sync.SetToken(authResult.Token)
-	if saveErr := cfg.SaveSessionToken(ctx, authResult.Token, int64(time.Until(authResult.ExpiresAt).Seconds())); saveErr != nil {
-		log.Warn().Err(saveErr).Msg("failed to cache session")
-	}
-
+	cacheSession(authResult.Token, authResult.ExpiresAt)
 	return clientApp, nil
 }

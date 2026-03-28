@@ -349,7 +349,7 @@ func (s *BboltStore) GetPINHash(_ context.Context) (hash, salt []byte, err error
 		h := b.Get(keyPINHash)
 		sv := b.Get(keyPINSalt)
 		if h == nil || sv == nil {
-			return fmt.Errorf("PIN not configured")
+			return port.ErrNotFound
 		}
 		hash = make([]byte, len(h))
 		copy(hash, h)

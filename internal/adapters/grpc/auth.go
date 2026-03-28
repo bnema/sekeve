@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bnema/zerowrap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -70,14 +69,8 @@ func (a *AuthManager) GPGPublicKey() []byte {
 
 // GenerateChallenge generates a cryptographically random 32-byte nonce, stores it with a 30s TTL,
 // and returns the hex-encoded nonce.
-func (a *AuthManager) GenerateChallenge(ctx context.Context) (string, error) {
-	log := zerowrap.FromCtx(ctx)
-
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
-		return "", log.WrapErr(err, "failed to generate nonce")
-	}
-	nonce := hex.EncodeToString(buf)
+func (a *AuthManager) GenerateChallenge(_ context.Context) (string, error) {
+	nonce := generateToken()
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -125,6 +118,14 @@ func (a *AuthManager) VerifyNonce(ctx context.Context, nonce string) (*VerifyRes
 	delete(a.nonces, nonce)
 
 	if a.pinConfigured {
+		// Sweep expired unlock tickets to prevent unbounded growth.
+		now := time.Now()
+		for k, entry := range a.unlockTickets {
+			if now.After(entry.expiresAt) {
+				delete(a.unlockTickets, k)
+			}
+		}
+
 		ticket := generateToken()
 		a.unlockTickets[ticket] = nonceEntry{
 			expiresAt: time.Now().Add(nonceTTL),
@@ -154,6 +155,7 @@ func (am *AuthManager) RedeemUnlockTicket(_ context.Context, ticket string) (str
 	if !ok {
 		return "", time.Time{}, fmt.Errorf("invalid or expired unlock ticket")
 	}
+	// Always consume the ticket before checking expiry to prevent replay.
 	delete(am.unlockTickets, ticket)
 
 	if time.Now().After(entry.expiresAt) {
