@@ -28,7 +28,7 @@ func NewPINPromptCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Println(pin)
+			fmt.Fprintln(cmd.OutOrStdout(), pin)
 			return nil
 		},
 	}

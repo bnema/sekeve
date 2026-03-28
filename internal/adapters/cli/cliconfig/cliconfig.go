@@ -152,8 +152,10 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 			case codes.PermissionDenied:
 				pin, pinErr = readPIN(true, "")
 			case codes.Unauthenticated:
-				authResult, err = clientApp.Vault.Authenticate(ctx)
-				if err != nil {
+				var authErr error
+				authResult, authErr = clientApp.Vault.Authenticate(ctx)
+				if authErr != nil {
+					err = fmt.Errorf("re-authentication failed: %w", authErr)
 					break
 				}
 				pin, pinErr = readPIN(true, "Session expired, enter PIN again")
@@ -172,6 +174,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		if err != nil {
 			clientApp.Close(ctx)
 			if !isTTY {
+				// Best-effort desktop notification (Linux notify-send); silently ignored if unavailable.
 				_ = exec.CommandContext(ctx, "notify-send", "-a", "sekeve", "-i", "dialog-password", "Sekeve", "PIN unlock failed").Run()
 			}
 			return nil, log.WrapErr(err, "unlock failed")

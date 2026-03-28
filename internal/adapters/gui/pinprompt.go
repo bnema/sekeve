@@ -131,10 +131,10 @@ func RunPINPrompt(errorMode bool, message string) (string, error) {
 
 func drawBorderedInput(gtx layout.Context, th *material.Theme, editor *widget.Editor, errorMode bool) layout.Dimensions {
 	borderColor := borderNormal
-	bgColor := inputBg
+	fillColor := inputBg
 	if errorMode {
 		borderColor = borderError
-		bgColor = inputBgError
+		fillColor = inputBgError
 	}
 
 	innerInset := layout.UniformInset(unit.Dp(8))
@@ -156,7 +156,7 @@ func drawBorderedInput(gtx layout.Context, th *material.Theme, editor *widget.Ed
 
 	paint.FillShape(gtx.Ops, borderColor,
 		clip.RRect{Rect: outerRect, SE: 4, SW: 4, NE: 4, NW: 4}.Op(gtx.Ops))
-	paint.FillShape(gtx.Ops, bgColor,
+	paint.FillShape(gtx.Ops, fillColor,
 		clip.RRect{Rect: innerRect, SE: 3, SW: 3, NE: 3, NW: 3}.Op(gtx.Ops))
 	innerStack := clip.RRect{Rect: innerRect, SE: 3, SW: 3, NE: 3, NW: 3}.Push(gtx.Ops)
 	innerGtx := gtx
