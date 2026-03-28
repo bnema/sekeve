@@ -28,7 +28,7 @@ var (
 	borderNormal  = color.NRGBA{R: 0x33, G: 0x33, B: 0x33, A: 0xFF}
 	borderError   = color.NRGBA{R: 0xE5, G: 0x48, B: 0x4D, A: 0xFF}
 	textColor     = color.NRGBA{R: 0xFA, G: 0xFA, B: 0xFA, A: 0xFF}
-	msgColor      = color.NRGBA{R: 0x88, G: 0x88, B: 0x88, A: 0xFF}
+	msgColor      = color.NRGBA{R: 0x99, G: 0x99, B: 0x99, A: 0xFF}
 	msgErrorColor = color.NRGBA{R: 0xE5, G: 0x48, B: 0x4D, A: 0xFF}
 	inputBg       = color.NRGBA{R: 0x25, G: 0x25, B: 0x2A, A: 0xFF}
 	inputBgError  = color.NRGBA{R: 0x2A, G: 0x20, B: 0x20, A: 0xFF}
@@ -131,6 +131,8 @@ func RunPINPrompt(errorMode bool, message string) (string, error) {
 
 	app.Main()
 
+	// On Wayland, app.Main() never returns — the DestroyEvent handler calls os.Exit.
+	// On X11 or other backends, app.Main() may return, so we read the result here.
 	select {
 	case pin := <-result:
 		return pin, nil

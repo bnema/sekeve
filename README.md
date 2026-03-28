@@ -118,7 +118,7 @@ List all entries in a picker-friendly format, then copy the selected value to cl
 sel=$(sekeve dmenu --list | fuzzel --dmenu --with-nth=1 --accept-nth=2) && sekeve dmenu --copy "$sel"
 ```
 
-When PIN is configured, use `--ensure-session` to authenticate before the picker opens (see [Niri setup](#niri--wayland-setup) above).
+When PIN is configured, use `--ensure-session` to authenticate before the picker opens (see [Niri setup](#niri--wayland-setup) below).
 
 Logins copy the password, secrets copy the value, notes copy the full content.
 

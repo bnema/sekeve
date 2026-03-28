@@ -56,7 +56,8 @@ func ReadPassword(prompt string) (string, error) {
 	return string(b), nil
 }
 
-// SendNotification sends a best-effort desktop notification via notify-send.
+// SendNotification sends a best-effort desktop notification via notify-send (Linux only).
+// Silently ignored on systems where notify-send is unavailable.
 func SendNotification(ctx context.Context, body string) {
 	_ = exec.CommandContext(ctx, "notify-send", "-a", "sekeve", "-i", "dialog-password", "Sekeve", body).Run()
 }
@@ -129,6 +130,11 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 
 		readPIN := func(errorMode bool, message string) (string, error) {
 			if isTTY {
+				if message != "" {
+					fmt.Fprintln(os.Stderr, message)
+				} else if errorMode {
+					fmt.Fprintln(os.Stderr, "Incorrect PIN, please try again.")
+				}
 				return ReadPassword("Unlock PIN: ")
 			}
 			return execPINPrompt(ctx, errorMode, message)
@@ -142,6 +148,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 
 		var token string
 		var expiresAt time.Time
+	retryLoop:
 		for attempts := 0; attempts < 3; attempts++ {
 			token, expiresAt, err = clientApp.Sync.Unlock(ctx, authResult.UnlockTicket, pin)
 			if err == nil {
@@ -161,7 +168,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 				authResult, authErr = clientApp.Vault.Authenticate(ctx)
 				if authErr != nil {
 					err = fmt.Errorf("re-authentication failed: %w", authErr)
-					break
+					break retryLoop
 				}
 				pin, pinErr = readPIN(true, "Session expired, enter PIN again")
 			case codes.ResourceExhausted:
