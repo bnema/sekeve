@@ -203,6 +203,57 @@ func (_c *MockStoragePort_DeleteByID_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
+// DeletePINHash provides a mock function for the type MockStoragePort
+func (_mock *MockStoragePort) DeletePINHash(ctx context.Context) error {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeletePINHash")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStoragePort_DeletePINHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeletePINHash'
+type MockStoragePort_DeletePINHash_Call struct {
+	*mock.Call
+}
+
+// DeletePINHash is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStoragePort_Expecter) DeletePINHash(ctx interface{}) *MockStoragePort_DeletePINHash_Call {
+	return &MockStoragePort_DeletePINHash_Call{Call: _e.mock.On("DeletePINHash", ctx)}
+}
+
+func (_c *MockStoragePort_DeletePINHash_Call) Run(run func(ctx context.Context)) *MockStoragePort_DeletePINHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStoragePort_DeletePINHash_Call) Return(err error) *MockStoragePort_DeletePINHash_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStoragePort_DeletePINHash_Call) RunAndReturn(run func(ctx context.Context) error) *MockStoragePort_DeletePINHash_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetByID provides a mock function for the type MockStoragePort
 func (_mock *MockStoragePort) GetByID(ctx context.Context, id string) (*entity.Envelope, error) {
 	ret := _mock.Called(ctx, id)
@@ -271,6 +322,76 @@ func (_c *MockStoragePort_GetByID_Call) RunAndReturn(run func(ctx context.Contex
 	return _c
 }
 
+// GetPINHash provides a mock function for the type MockStoragePort
+func (_mock *MockStoragePort) GetPINHash(ctx context.Context) ([]byte, []byte, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPINHash")
+	}
+
+	var r0 []byte
+	var r1 []byte
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]byte, []byte, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []byte); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) []byte); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]byte)
+		}
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context) error); ok {
+		r2 = returnFunc(ctx)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockStoragePort_GetPINHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPINHash'
+type MockStoragePort_GetPINHash_Call struct {
+	*mock.Call
+}
+
+// GetPINHash is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockStoragePort_Expecter) GetPINHash(ctx interface{}) *MockStoragePort_GetPINHash_Call {
+	return &MockStoragePort_GetPINHash_Call{Call: _e.mock.On("GetPINHash", ctx)}
+}
+
+func (_c *MockStoragePort_GetPINHash_Call) Run(run func(ctx context.Context)) *MockStoragePort_GetPINHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStoragePort_GetPINHash_Call) Return(hash []byte, salt []byte, err error) *MockStoragePort_GetPINHash_Call {
+	_c.Call.Return(hash, salt, err)
+	return _c
+}
+
+func (_c *MockStoragePort_GetPINHash_Call) RunAndReturn(run func(ctx context.Context) ([]byte, []byte, error)) *MockStoragePort_GetPINHash_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // List provides a mock function for the type MockStoragePort
 func (_mock *MockStoragePort) List(ctx context.Context, entryType entity.EntryType) ([]*entity.Envelope, error) {
 	ret := _mock.Called(ctx, entryType)
@@ -335,6 +456,69 @@ func (_c *MockStoragePort_List_Call) Return(envelopes []*entity.Envelope, err er
 }
 
 func (_c *MockStoragePort_List_Call) RunAndReturn(run func(ctx context.Context, entryType entity.EntryType) ([]*entity.Envelope, error)) *MockStoragePort_List_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// StorePINHash provides a mock function for the type MockStoragePort
+func (_mock *MockStoragePort) StorePINHash(ctx context.Context, hash []byte, salt []byte) error {
+	ret := _mock.Called(ctx, hash, salt)
+
+	if len(ret) == 0 {
+		panic("no return value specified for StorePINHash")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []byte, []byte) error); ok {
+		r0 = returnFunc(ctx, hash, salt)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStoragePort_StorePINHash_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StorePINHash'
+type MockStoragePort_StorePINHash_Call struct {
+	*mock.Call
+}
+
+// StorePINHash is a helper method to define mock.On call
+//   - ctx context.Context
+//   - hash []byte
+//   - salt []byte
+func (_e *MockStoragePort_Expecter) StorePINHash(ctx interface{}, hash interface{}, salt interface{}) *MockStoragePort_StorePINHash_Call {
+	return &MockStoragePort_StorePINHash_Call{Call: _e.mock.On("StorePINHash", ctx, hash, salt)}
+}
+
+func (_c *MockStoragePort_StorePINHash_Call) Run(run func(ctx context.Context, hash []byte, salt []byte)) *MockStoragePort_StorePINHash_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []byte
+		if args[1] != nil {
+			arg1 = args[1].([]byte)
+		}
+		var arg2 []byte
+		if args[2] != nil {
+			arg2 = args[2].([]byte)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStoragePort_StorePINHash_Call) Return(err error) *MockStoragePort_StorePINHash_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStoragePort_StorePINHash_Call) RunAndReturn(run func(ctx context.Context, hash []byte, salt []byte) error) *MockStoragePort_StorePINHash_Call {
 	_c.Call.Return(run)
 	return _c
 }

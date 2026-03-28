@@ -229,3 +229,49 @@ func TestBboltStore_AuthKey(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, pubKey, got)
 }
+
+func TestPINHash_StoreAndRetrieve(t *testing.T) {
+	store := newTestStore(t)
+
+	hash := []byte("testhash")
+	salt := []byte("testsalt")
+
+	err := store.StorePINHash(context.Background(), hash, salt)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gotHash, gotSalt, err := store.GetPINHash(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(gotHash) != string(hash) {
+		t.Errorf("hash = %q, want %q", gotHash, hash)
+	}
+	if string(gotSalt) != string(salt) {
+		t.Errorf("salt = %q, want %q", gotSalt, salt)
+	}
+}
+
+func TestPINHash_NotSet(t *testing.T) {
+	store := newTestStore(t)
+
+	_, _, err := store.GetPINHash(context.Background())
+	if err == nil {
+		t.Fatal("expected error when PIN hash not set")
+	}
+}
+
+func TestPINHash_Delete(t *testing.T) {
+	store := newTestStore(t)
+
+	_ = store.StorePINHash(context.Background(), []byte("h"), []byte("s"))
+	err := store.DeletePINHash(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = store.GetPINHash(context.Background())
+	if err == nil {
+		t.Fatal("expected error after delete")
+	}
+}

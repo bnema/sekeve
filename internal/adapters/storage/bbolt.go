@@ -21,6 +21,8 @@ var (
 	bucketAuth      = []byte("auth")
 
 	keyGPGPublicKey = []byte("gpg_public_key")
+	keyPINHash      = []byte("pin_hash")
+	keyPINSalt      = []byte("pin_salt")
 )
 
 // BboltStore implements port.StoragePort using bbolt (embedded key-value store).
@@ -326,6 +328,47 @@ func (s *BboltStore) GetAuthKey(ctx context.Context) ([]byte, error) {
 	}
 
 	return key, nil
+}
+
+// StorePINHash persists a PIN hash and salt in the auth bucket.
+func (s *BboltStore) StorePINHash(_ context.Context, hash, salt []byte) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAuth)
+		if err := b.Put(keyPINHash, hash); err != nil {
+			return err
+		}
+		return b.Put(keyPINSalt, salt)
+	})
+}
+
+// GetPINHash retrieves the stored PIN hash and salt.
+// Returns an error when no PIN has been configured yet.
+func (s *BboltStore) GetPINHash(_ context.Context) (hash, salt []byte, err error) {
+	err = s.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAuth)
+		h := b.Get(keyPINHash)
+		sv := b.Get(keyPINSalt)
+		if h == nil || sv == nil {
+			return fmt.Errorf("PIN not configured")
+		}
+		hash = make([]byte, len(h))
+		copy(hash, h)
+		salt = make([]byte, len(sv))
+		copy(salt, sv)
+		return nil
+	})
+	return
+}
+
+// DeletePINHash removes the PIN hash and salt from the auth bucket.
+func (s *BboltStore) DeletePINHash(_ context.Context) error {
+	return s.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucketAuth)
+		if err := b.Delete(keyPINHash); err != nil {
+			return err
+		}
+		return b.Delete(keyPINSalt)
+	})
 }
 
 // Close closes the underlying bbolt database.
