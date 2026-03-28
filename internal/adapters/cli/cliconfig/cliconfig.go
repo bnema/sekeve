@@ -5,11 +5,14 @@ package cliconfig
 import (
 	"context"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/bnema/sekeve/internal/app"
 	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 // CLI flag vars — overrides for config file values.
@@ -67,9 +70,33 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		return nil, log.WrapErr(err, "authentication failed")
 	}
 
-	// Task 8 will add full PIN flow; for now use the token directly.
-	token = authResult.Token
-	if saveErr := cfg.SaveSessionToken(ctx, token, 3600); saveErr != nil {
+	if authResult.RequiresPIN {
+		// Prompt for PIN.
+		fmt.Fprint(os.Stderr, "Unlock PIN: ")
+		pinBytes, pinErr := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Fprintln(os.Stderr)
+		if pinErr != nil {
+			clientApp.Close(ctx)
+			return nil, fmt.Errorf("failed to read PIN: %w", pinErr)
+		}
+
+		token, expiresAt, unlockErr := clientApp.Sync.Unlock(ctx, authResult.UnlockTicket, string(pinBytes))
+		clear(pinBytes)
+		if unlockErr != nil {
+			clientApp.Close(ctx)
+			return nil, log.WrapErr(unlockErr, "unlock failed")
+		}
+
+		clientApp.Sync.SetToken(token)
+		if saveErr := cfg.SaveSessionToken(ctx, token, int64(time.Until(expiresAt).Seconds())); saveErr != nil {
+			log.Warn().Err(saveErr).Msg("failed to cache session")
+		}
+		return clientApp, nil
+	}
+
+	// No PIN required — use token directly.
+	clientApp.Sync.SetToken(authResult.Token)
+	if saveErr := cfg.SaveSessionToken(ctx, authResult.Token, int64(time.Until(authResult.ExpiresAt).Seconds())); saveErr != nil {
 		log.Warn().Err(saveErr).Msg("failed to cache session")
 	}
 
