@@ -97,6 +97,39 @@ func (c *Client) Authenticate(ctx context.Context, gpgKeyID string, crypto port.
 	}, nil
 }
 
+func (c *Client) HasPIN(ctx context.Context) (bool, error) {
+	resp, err := c.client.HasPIN(ctx, &sekevev1.HasPINRequest{})
+	if err != nil {
+		return false, err
+	}
+	return resp.HasPin, nil
+}
+
+func (c *Client) SetPIN(ctx context.Context, currentPIN, newPIN string) error {
+	log := zerowrap.FromCtx(ctx)
+	ctx = c.authedCtx(ctx)
+	_, err := c.client.SetPIN(ctx, &sekevev1.SetPINRequest{
+		CurrentPin: currentPIN,
+		NewPin:     newPIN,
+	})
+	if err != nil {
+		return log.WrapErr(err, "failed to set PIN")
+	}
+	return nil
+}
+
+func (c *Client) Unlock(ctx context.Context, unlockTicket, pin string) (string, time.Time, error) {
+	log := zerowrap.FromCtx(ctx)
+	resp, err := c.client.Unlock(ctx, &sekevev1.UnlockRequest{
+		UnlockTicket: unlockTicket,
+		Pin:          pin,
+	})
+	if err != nil {
+		return "", time.Time{}, log.WrapErr(err, "failed to unlock")
+	}
+	return resp.Token, time.Unix(resp.ExpiresAt, 0), nil
+}
+
 func (c *Client) CreateEntry(ctx context.Context, envelope *entity.Envelope) (string, error) {
 	log := zerowrap.FromCtx(ctx)
 	ctx = c.authedCtx(ctx)

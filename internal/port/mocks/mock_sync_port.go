@@ -6,6 +6,7 @@ package mocks
 
 import (
 	"context"
+	"time"
 
 	"github.com/bnema/sekeve/internal/domain/entity"
 	"github.com/bnema/sekeve/internal/port"
@@ -355,6 +356,66 @@ func (_c *MockSyncPort_GetEntry_Call) RunAndReturn(run func(ctx context.Context,
 	return _c
 }
 
+// HasPIN provides a mock function for the type MockSyncPort
+func (_mock *MockSyncPort) HasPIN(ctx context.Context) (bool, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HasPIN")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) (bool, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) bool); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSyncPort_HasPIN_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HasPIN'
+type MockSyncPort_HasPIN_Call struct {
+	*mock.Call
+}
+
+// HasPIN is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockSyncPort_Expecter) HasPIN(ctx interface{}) *MockSyncPort_HasPIN_Call {
+	return &MockSyncPort_HasPIN_Call{Call: _e.mock.On("HasPIN", ctx)}
+}
+
+func (_c *MockSyncPort_HasPIN_Call) Run(run func(ctx context.Context)) *MockSyncPort_HasPIN_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSyncPort_HasPIN_Call) Return(b bool, err error) *MockSyncPort_HasPIN_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockSyncPort_HasPIN_Call) RunAndReturn(run func(ctx context.Context) (bool, error)) *MockSyncPort_HasPIN_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListEntries provides a mock function for the type MockSyncPort
 func (_mock *MockSyncPort) ListEntries(ctx context.Context, entryType entity.EntryType) ([]*entity.Envelope, error) {
 	ret := _mock.Called(ctx, entryType)
@@ -419,6 +480,147 @@ func (_c *MockSyncPort_ListEntries_Call) Return(envelopes []*entity.Envelope, er
 }
 
 func (_c *MockSyncPort_ListEntries_Call) RunAndReturn(run func(ctx context.Context, entryType entity.EntryType) ([]*entity.Envelope, error)) *MockSyncPort_ListEntries_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetPIN provides a mock function for the type MockSyncPort
+func (_mock *MockSyncPort) SetPIN(ctx context.Context, currentPIN string, newPIN string) error {
+	ret := _mock.Called(ctx, currentPIN, newPIN)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetPIN")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = returnFunc(ctx, currentPIN, newPIN)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockSyncPort_SetPIN_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetPIN'
+type MockSyncPort_SetPIN_Call struct {
+	*mock.Call
+}
+
+// SetPIN is a helper method to define mock.On call
+//   - ctx context.Context
+//   - currentPIN string
+//   - newPIN string
+func (_e *MockSyncPort_Expecter) SetPIN(ctx interface{}, currentPIN interface{}, newPIN interface{}) *MockSyncPort_SetPIN_Call {
+	return &MockSyncPort_SetPIN_Call{Call: _e.mock.On("SetPIN", ctx, currentPIN, newPIN)}
+}
+
+func (_c *MockSyncPort_SetPIN_Call) Run(run func(ctx context.Context, currentPIN string, newPIN string)) *MockSyncPort_SetPIN_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSyncPort_SetPIN_Call) Return(err error) *MockSyncPort_SetPIN_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockSyncPort_SetPIN_Call) RunAndReturn(run func(ctx context.Context, currentPIN string, newPIN string) error) *MockSyncPort_SetPIN_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Unlock provides a mock function for the type MockSyncPort
+func (_mock *MockSyncPort) Unlock(ctx context.Context, unlockTicket string, pin string) (string, time.Time, error) {
+	ret := _mock.Called(ctx, unlockTicket, pin)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Unlock")
+	}
+
+	var r0 string
+	var r1 time.Time
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (string, time.Time, error)); ok {
+		return returnFunc(ctx, unlockTicket, pin)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
+		r0 = returnFunc(ctx, unlockTicket, pin)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) time.Time); ok {
+		r1 = returnFunc(ctx, unlockTicket, pin)
+	} else {
+		r1 = ret.Get(1).(time.Time)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, string, string) error); ok {
+		r2 = returnFunc(ctx, unlockTicket, pin)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
+}
+
+// MockSyncPort_Unlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Unlock'
+type MockSyncPort_Unlock_Call struct {
+	*mock.Call
+}
+
+// Unlock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - unlockTicket string
+//   - pin string
+func (_e *MockSyncPort_Expecter) Unlock(ctx interface{}, unlockTicket interface{}, pin interface{}) *MockSyncPort_Unlock_Call {
+	return &MockSyncPort_Unlock_Call{Call: _e.mock.On("Unlock", ctx, unlockTicket, pin)}
+}
+
+func (_c *MockSyncPort_Unlock_Call) Run(run func(ctx context.Context, unlockTicket string, pin string)) *MockSyncPort_Unlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSyncPort_Unlock_Call) Return(token string, expiresAt time.Time, err error) *MockSyncPort_Unlock_Call {
+	_c.Call.Return(token, expiresAt, err)
+	return _c
+}
+
+func (_c *MockSyncPort_Unlock_Call) RunAndReturn(run func(ctx context.Context, unlockTicket string, pin string) (string, time.Time, error)) *MockSyncPort_Unlock_Call {
 	_c.Call.Return(run)
 	return _c
 }
