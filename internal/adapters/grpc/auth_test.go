@@ -93,3 +93,49 @@ func TestRedeemUnlockTicket_Invalid(t *testing.T) {
 		t.Error("expected error for invalid ticket")
 	}
 }
+
+func TestPINRateLimit_BlocksAfterFailures(t *testing.T) {
+	am := NewAuthManager(nil)
+
+	// First check should pass.
+	if err := am.CheckPINRateLimit(); err != nil {
+		t.Fatal("expected no rate limit initially")
+	}
+
+	// Record failures — each should set a lockout.
+	am.RecordPINFailure()
+	if err := am.CheckPINRateLimit(); err == nil {
+		t.Error("expected rate limit after first failure")
+	}
+}
+
+func TestPINRateLimit_ResetsOnSuccess(t *testing.T) {
+	am := NewAuthManager(nil)
+
+	am.RecordPINFailure()
+	am.RecordPINFailure()
+	am.ResetPINFailures()
+
+	if err := am.CheckPINRateLimit(); err != nil {
+		t.Error("expected no rate limit after reset")
+	}
+}
+
+func TestPINRateLimit_ExponentialBackoff(t *testing.T) {
+	am := NewAuthManager(nil)
+
+	// Each failure should increase the lockout duration.
+	am.RecordPINFailure() // 2s
+	am.mu.Lock()
+	d1 := am.pinLockedUntil
+	am.mu.Unlock()
+
+	am.RecordPINFailure() // 4s
+	am.mu.Lock()
+	d2 := am.pinLockedUntil
+	am.mu.Unlock()
+
+	if !d2.After(d1) {
+		t.Error("expected increasing lockout duration")
+	}
+}

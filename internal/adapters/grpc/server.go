@@ -271,9 +271,14 @@ func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*seke
 	existingHash, existingSalt, err := s.storage.GetPINHash(ctx)
 	if err == nil {
 		// A PIN is already set — caller must supply the correct current PIN.
+		if err := s.auth.CheckPINRateLimit(); err != nil {
+			return nil, status.Errorf(codes.ResourceExhausted, "%v", err)
+		}
 		if !adaptercrypto.VerifyPIN(req.CurrentPin, existingHash, existingSalt) {
+			s.auth.RecordPINFailure()
 			return nil, status.Errorf(codes.PermissionDenied, "incorrect current PIN")
 		}
+		s.auth.ResetPINFailures()
 	}
 
 	hash, salt, err := adaptercrypto.HashPIN(req.NewPin)
@@ -291,12 +296,17 @@ func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*seke
 // Unlock exchanges a one-time unlock ticket and PIN for a session token.
 // This RPC is unauthenticated (listed in skipAuthMethods).
 func (s *Server) Unlock(ctx context.Context, req *sekevev1.UnlockRequest) (*sekevev1.UnlockResponse, error) {
+	if err := s.auth.CheckPINRateLimit(); err != nil {
+		return nil, status.Errorf(codes.ResourceExhausted, "%v", err)
+	}
+
 	// Verify PIN before consuming the ticket so the user can retry on wrong PIN.
 	hash, salt, err := s.storage.GetPINHash(ctx)
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "no PIN configured")
 	}
 	if !adaptercrypto.VerifyPIN(req.Pin, hash, salt) {
+		s.auth.RecordPINFailure()
 		return nil, status.Errorf(codes.PermissionDenied, "incorrect PIN")
 	}
 
@@ -305,6 +315,7 @@ func (s *Server) Unlock(ctx context.Context, req *sekevev1.UnlockRequest) (*seke
 		return nil, status.Errorf(codes.Unauthenticated, "invalid unlock ticket: %v", err)
 	}
 
+	s.auth.ResetPINFailures()
 	return &sekevev1.UnlockResponse{
 		Token:     token,
 		ExpiresAt: expiresAt.Unix(),

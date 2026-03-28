@@ -16,7 +16,6 @@ func NewPINCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newPINSetCmd())
 	cmd.AddCommand(newPINChangeCmd())
-	cmd.AddCommand(newPINDisableCmd())
 	return cmd
 }
 
@@ -103,24 +102,6 @@ func newPINChangeCmd() *cobra.Command {
 				return err
 			}
 			return styles.RenderSuccess(os.Stderr, "PIN changed successfully")
-		},
-	}
-}
-
-func newPINDisableCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "disable",
-		Short: "Remove the unlock PIN",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := cmd.Context()
-			cfg := cliconfig.ConfigFromCmd(cmd)
-			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
-			if err != nil {
-				return err
-			}
-			defer clientApp.Close(ctx)
-
-			return fmt.Errorf("not implemented yet")
 		},
 	}
 }

@@ -35,14 +35,22 @@ type VerifyResult struct {
 	UnlockTicket string
 }
 
+const (
+	maxPINFailures = 5
+	pinLockoutBase = 2 * time.Second
+	pinLockoutMax  = 60 * time.Second
+)
+
 // AuthManager handles challenge-response authentication and session token management.
 type AuthManager struct {
-	mu            sync.Mutex
-	nonces        map[string]nonceEntry
-	sessions      map[string]sessionEntry
-	unlockTickets map[string]nonceEntry
-	gpgPubKey     []byte
-	pinConfigured bool
+	mu             sync.Mutex
+	nonces         map[string]nonceEntry
+	sessions       map[string]sessionEntry
+	unlockTickets  map[string]nonceEntry
+	gpgPubKey      []byte
+	pinConfigured  bool
+	pinFailures    int
+	pinLockedUntil time.Time
 }
 
 // NewAuthManager creates a new AuthManager with the provided GPG public key.
@@ -53,6 +61,43 @@ func NewAuthManager(gpgPubKey []byte) *AuthManager {
 		unlockTickets: make(map[string]nonceEntry),
 		gpgPubKey:     gpgPubKey,
 	}
+}
+
+// CheckPINRateLimit returns an error if too many failed PIN attempts have occurred.
+// Must be called under a.mu lock.
+func (a *AuthManager) checkPINRateLimit() error {
+	if time.Now().Before(a.pinLockedUntil) {
+		remaining := time.Until(a.pinLockedUntil).Round(time.Second)
+		return fmt.Errorf("too many failed PIN attempts, retry in %s", remaining)
+	}
+	return nil
+}
+
+// RecordPINFailure increments the failure counter and sets a lockout delay.
+func (a *AuthManager) RecordPINFailure() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pinFailures++
+	backoff := pinLockoutBase * (1 << min(a.pinFailures-1, 5))
+	if backoff > pinLockoutMax {
+		backoff = pinLockoutMax
+	}
+	a.pinLockedUntil = time.Now().Add(backoff)
+}
+
+// ResetPINFailures clears the failure counter on successful unlock.
+func (a *AuthManager) ResetPINFailures() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pinFailures = 0
+	a.pinLockedUntil = time.Time{}
+}
+
+// CheckPINRateLimit returns an error if the caller must wait before retrying.
+func (a *AuthManager) CheckPINRateLimit() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.checkPINRateLimit()
 }
 
 // SetPINConfigured records whether a PIN has been configured on the server.
