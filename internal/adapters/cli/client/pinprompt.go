@@ -3,10 +3,6 @@
 package client
 
 import (
-	"errors"
-	"fmt"
-	"os"
-
 	"github.com/bnema/sekeve/internal/adapters/gui"
 	"github.com/spf13/cobra"
 )
@@ -21,15 +17,10 @@ func NewPINPromptCmd() *cobra.Command {
 		Hidden:       true,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pin, err := gui.RunPINPrompt(errorMode, message)
-			if errors.Is(err, gui.ErrCancelled) {
-				os.Exit(1)
-			}
-			if err != nil {
-				return err
-			}
-			fmt.Fprintln(cmd.OutOrStdout(), pin)
-			return nil
+			// RunPINPrompt handles stdout output and os.Exit internally
+			// because app.Main() does not return on Wayland.
+			_, err := gui.RunPINPrompt(errorMode, message)
+			return err
 		},
 	}
 

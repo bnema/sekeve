@@ -4,8 +4,10 @@ package gui
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
+	"os"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
@@ -66,6 +68,14 @@ func RunPINPrompt(errorMode bool, message string) (string, error) {
 		for {
 			switch e := w.Event().(type) {
 			case app.DestroyEvent:
+				// app.Main() does not return on Wayland, so we must exit here.
+				select {
+				case pin := <-result:
+					fmt.Fprintln(os.Stdout, pin)
+					os.Exit(0)
+				default:
+					os.Exit(1)
+				}
 				return
 
 			case app.FrameEvent:
