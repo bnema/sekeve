@@ -18,6 +18,7 @@ import (
 func NewDmenuCmd() *cobra.Command {
 	var listMode bool
 	var copySelection string
+	var ensureSession bool
 
 	cmd := &cobra.Command{
 		Use:   "dmenu",
@@ -40,6 +41,10 @@ func NewDmenuCmd() *cobra.Command {
 					_ = styles.RenderError(os.Stderr, err)
 				}
 			}()
+
+			if ensureSession {
+				return nil
+			}
 
 			if listMode {
 				entries, err := clientApp.Vault.ListEntries(ctx, entity.EntryTypeUnspecified)
@@ -137,6 +142,7 @@ func NewDmenuCmd() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().BoolVar(&ensureSession, "ensure-session", false, "Authenticate and cache session, then exit")
 	cmd.Flags().BoolVar(&listMode, "list", false, "List entries for dmenu input")
 	cmd.Flags().StringVar(&copySelection, "copy", "", "Copy value for selected dmenu entry")
 	return cmd
