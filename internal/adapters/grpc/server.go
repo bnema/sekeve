@@ -151,15 +151,18 @@ func (s *Server) Authenticate(ctx context.Context, req *sekevev1.AuthRequest) (*
 }
 
 // VerifyChallenge verifies the nonce returned by the client and issues a session token.
+// When PIN is configured, it returns an unlock ticket instead of a session token.
 func (s *Server) VerifyChallenge(ctx context.Context, req *sekevev1.ChallengeResponse) (*sekevev1.SessionToken, error) {
-	token, expiry, err := s.auth.VerifyNonce(ctx, req.Nonce)
+	result, err := s.auth.VerifyNonce(ctx, req.Nonce)
 	if err != nil {
 		return nil, err
 	}
 
 	return &sekevev1.SessionToken{
-		Token:     token,
-		ExpiresAt: expiry.Unix(),
+		Token:        result.Token,
+		ExpiresAt:    result.ExpiresAt.Unix(),
+		RequiresPin:  result.RequiresPIN,
+		UnlockTicket: result.UnlockTicket,
 	}, nil
 }
 

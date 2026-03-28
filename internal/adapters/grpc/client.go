@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bnema/sekeve/internal/domain/entity"
 	"github.com/bnema/sekeve/internal/port"
@@ -50,7 +51,7 @@ func (c *Client) SetToken(token string) {
 	c.token = token
 }
 
-func (c *Client) Authenticate(ctx context.Context, gpgKeyID string, crypto port.CryptoPort) (string, error) {
+func (c *Client) Authenticate(ctx context.Context, gpgKeyID string, crypto port.CryptoPort) (*port.AuthResult, error) {
 	log := zerowrap.FromCtx(ctx)
 	ctx = zerowrap.CtxWithFields(ctx, map[string]any{
 		zerowrap.FieldAdapter: "grpc-client",
@@ -59,7 +60,7 @@ func (c *Client) Authenticate(ctx context.Context, gpgKeyID string, crypto port.
 
 	challenge, err := c.client.Authenticate(ctx, &sekevev1.AuthRequest{GpgKeyId: gpgKeyID})
 	if err != nil {
-		return "", log.WrapErr(err, "failed to get challenge")
+		return nil, log.WrapErr(err, "failed to get challenge")
 	}
 
 	var nonce string
@@ -71,19 +72,29 @@ func (c *Client) Authenticate(ctx context.Context, gpgKeyID string, crypto port.
 		nonce = parts[1]
 	})
 	if err != nil {
-		return "", log.WrapErr(err, "failed to decrypt challenge")
+		return nil, log.WrapErr(err, "failed to decrypt challenge")
 	}
 	if nonce == "" {
-		return "", fmt.Errorf("invalid challenge format")
+		return nil, fmt.Errorf("invalid challenge format")
 	}
 
 	tokenResp, err := c.client.VerifyChallenge(ctx, &sekevev1.ChallengeResponse{Nonce: nonce})
 	if err != nil {
-		return "", log.WrapErr(err, "failed to verify challenge")
+		return nil, log.WrapErr(err, "failed to verify challenge")
+	}
+
+	if tokenResp.RequiresPin {
+		return &port.AuthResult{
+			RequiresPIN:  true,
+			UnlockTicket: tokenResp.UnlockTicket,
+		}, nil
 	}
 
 	c.token = tokenResp.Token
-	return tokenResp.Token, nil
+	return &port.AuthResult{
+		Token:     tokenResp.Token,
+		ExpiresAt: time.Unix(tokenResp.ExpiresAt, 0),
+	}, nil
 }
 
 func (c *Client) CreateEntry(ctx context.Context, envelope *entity.Envelope) (string, error) {

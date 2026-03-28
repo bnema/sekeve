@@ -28,21 +28,39 @@ type sessionEntry struct {
 	expiresAt time.Time
 }
 
+// VerifyResult holds the outcome of a VerifyNonce call.
+type VerifyResult struct {
+	Token        string
+	ExpiresAt    time.Time
+	RequiresPIN  bool
+	UnlockTicket string
+}
+
 // AuthManager handles challenge-response authentication and session token management.
 type AuthManager struct {
-	mu        sync.Mutex
-	nonces    map[string]nonceEntry
-	sessions  map[string]sessionEntry
-	gpgPubKey []byte
+	mu            sync.Mutex
+	nonces        map[string]nonceEntry
+	sessions      map[string]sessionEntry
+	unlockTickets map[string]nonceEntry
+	gpgPubKey     []byte
+	pinConfigured bool
 }
 
 // NewAuthManager creates a new AuthManager with the provided GPG public key.
 func NewAuthManager(gpgPubKey []byte) *AuthManager {
 	return &AuthManager{
-		nonces:    make(map[string]nonceEntry),
-		sessions:  make(map[string]sessionEntry),
-		gpgPubKey: gpgPubKey,
+		nonces:        make(map[string]nonceEntry),
+		sessions:      make(map[string]sessionEntry),
+		unlockTickets: make(map[string]nonceEntry),
+		gpgPubKey:     gpgPubKey,
 	}
+}
+
+// SetPINConfigured records whether a PIN has been configured on the server.
+func (am *AuthManager) SetPINConfigured(configured bool) {
+	am.mu.Lock()
+	defer am.mu.Unlock()
+	am.pinConfigured = configured
 }
 
 // GPGPublicKey returns the stored GPG public key.
@@ -82,34 +100,70 @@ func (a *AuthManager) FormatChallenge(nonce string) string {
 	return fmt.Sprintf("sekeve-challenge:%s:%d", nonce, time.Now().Unix())
 }
 
-// VerifyNonce verifies that a nonce exists and has not expired. On success it
-// generates a session token (32-byte hex, 1h TTL) and returns the token and its
-// expiry time.
-func (a *AuthManager) VerifyNonce(ctx context.Context, nonce string) (string, time.Time, error) {
-	log := zerowrap.FromCtx(ctx)
+// generateToken returns a cryptographically random 32-byte hex string.
+func generateToken() string {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}
 
+// VerifyNonce verifies that a nonce exists and has not expired. When PIN is
+// configured it returns an unlock ticket instead of a session token. Without
+// PIN it returns a session token directly.
+func (a *AuthManager) VerifyNonce(ctx context.Context, nonce string) (*VerifyResult, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	entry, ok := a.nonces[nonce]
 	if !ok {
-		return "", time.Time{}, status.Error(codes.Unauthenticated, "nonce not found")
+		return nil, status.Error(codes.Unauthenticated, "nonce not found")
 	}
 	if time.Now().After(entry.expiresAt) {
 		delete(a.nonces, nonce)
-		return "", time.Time{}, status.Error(codes.Unauthenticated, "nonce expired")
+		return nil, status.Error(codes.Unauthenticated, "nonce expired")
 	}
 	delete(a.nonces, nonce)
 
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
-		return "", time.Time{}, log.WrapErr(err, "failed to generate session token")
+	if a.pinConfigured {
+		ticket := generateToken()
+		a.unlockTickets[ticket] = nonceEntry{
+			expiresAt: time.Now().Add(nonceTTL),
+		}
+		return &VerifyResult{
+			RequiresPIN:  true,
+			UnlockTicket: ticket,
+		}, nil
 	}
-	token := hex.EncodeToString(buf)
-	expiry := time.Now().Add(sessionTTL)
-	a.sessions[token] = sessionEntry{expiresAt: expiry}
 
-	return token, expiry, nil
+	token := generateToken()
+	expiresAt := time.Now().Add(sessionTTL)
+	a.sessions[token] = sessionEntry{expiresAt: expiresAt}
+	return &VerifyResult{
+		Token:     token,
+		ExpiresAt: expiresAt,
+	}, nil
+}
+
+// RedeemUnlockTicket exchanges a one-time unlock ticket for a session token.
+// The ticket is consumed on first use.
+func (am *AuthManager) RedeemUnlockTicket(_ context.Context, ticket string) (string, time.Time, error) {
+	am.mu.Lock()
+	defer am.mu.Unlock()
+
+	entry, ok := am.unlockTickets[ticket]
+	if !ok {
+		return "", time.Time{}, fmt.Errorf("invalid or expired unlock ticket")
+	}
+	delete(am.unlockTickets, ticket)
+
+	if time.Now().After(entry.expiresAt) {
+		return "", time.Time{}, fmt.Errorf("unlock ticket expired")
+	}
+
+	token := generateToken()
+	expiresAt := time.Now().Add(sessionTTL)
+	am.sessions[token] = sessionEntry{expiresAt: expiresAt}
+	return token, expiresAt, nil
 }
 
 // SetTestToken sets a session token with a 24h expiry. Used only in tests.

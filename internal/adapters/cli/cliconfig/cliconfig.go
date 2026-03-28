@@ -51,15 +51,15 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		return nil, log.WrapErr(err, "failed to connect")
 	}
 
-	// Try cached session
+	// Try cached session first.
 	token, err := cfg.SessionToken(ctx)
 	if err == nil {
 		clientApp.Sync.SetToken(token)
 		return clientApp, nil
 	}
 
-	// Re-authenticate
-	token, err = clientApp.Vault.Authenticate(ctx)
+	// No valid cached session — authenticate via GPG challenge-response.
+	authResult, err := clientApp.Vault.Authenticate(ctx)
 	if err != nil {
 		if closeErr := clientApp.Close(ctx); closeErr != nil {
 			log.Warn().Err(closeErr).Msg("failed to close client app after auth failure")
@@ -67,6 +67,8 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		return nil, log.WrapErr(err, "authentication failed")
 	}
 
+	// Task 8 will add full PIN flow; for now use the token directly.
+	token = authResult.Token
 	if saveErr := cfg.SaveSessionToken(ctx, token, 3600); saveErr != nil {
 		log.Warn().Err(saveErr).Msg("failed to cache session")
 	}

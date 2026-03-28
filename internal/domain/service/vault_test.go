@@ -304,14 +304,14 @@ func TestAuthenticate(t *testing.T) {
 		{
 			name: "success",
 			setupMock: func(crypto *mocks.MockCryptoPort, syncP *mocks.MockSyncPort) {
-				syncP.EXPECT().Authenticate(mock.Anything, testKeyID, crypto).Return("session-token", nil)
+				syncP.EXPECT().Authenticate(mock.Anything, testKeyID, crypto).Return(&port.AuthResult{Token: "session-token"}, nil)
 			},
 			wantToken: "session-token",
 		},
 		{
 			name: "failure",
 			setupMock: func(crypto *mocks.MockCryptoPort, syncP *mocks.MockSyncPort) {
-				syncP.EXPECT().Authenticate(mock.Anything, testKeyID, crypto).Return("", errors.New("auth failed"))
+				syncP.EXPECT().Authenticate(mock.Anything, testKeyID, crypto).Return(nil, errors.New("auth failed"))
 			},
 			wantErr: true,
 		},
@@ -324,14 +324,14 @@ func TestAuthenticate(t *testing.T) {
 			tc.setupMock(cryptoMock, syncMock)
 
 			svc := newService(t, cryptoMock, syncMock)
-			token, err := svc.Authenticate(context.Background())
+			result, err := svc.Authenticate(context.Background())
 
 			if tc.wantErr {
 				assert.Error(t, err)
-				assert.Empty(t, token)
+				assert.Nil(t, result)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tc.wantToken, token)
+				assert.Equal(t, tc.wantToken, result.Token)
 			}
 		})
 	}

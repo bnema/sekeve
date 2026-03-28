@@ -40,22 +40,24 @@ func (_m *MockSyncPort) EXPECT() *MockSyncPort_Expecter {
 }
 
 // Authenticate provides a mock function for the type MockSyncPort
-func (_mock *MockSyncPort) Authenticate(ctx context.Context, gpgKeyID string, crypto port.CryptoPort) (string, error) {
+func (_mock *MockSyncPort) Authenticate(ctx context.Context, gpgKeyID string, crypto port.CryptoPort) (*port.AuthResult, error) {
 	ret := _mock.Called(ctx, gpgKeyID, crypto)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Authenticate")
 	}
 
-	var r0 string
+	var r0 *port.AuthResult
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, port.CryptoPort) (string, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, port.CryptoPort) (*port.AuthResult, error)); ok {
 		return returnFunc(ctx, gpgKeyID, crypto)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, port.CryptoPort) string); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, port.CryptoPort) *port.AuthResult); ok {
 		r0 = returnFunc(ctx, gpgKeyID, crypto)
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*port.AuthResult)
+		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, port.CryptoPort) error); ok {
 		r1 = returnFunc(ctx, gpgKeyID, crypto)
@@ -101,12 +103,12 @@ func (_c *MockSyncPort_Authenticate_Call) Run(run func(ctx context.Context, gpgK
 	return _c
 }
 
-func (_c *MockSyncPort_Authenticate_Call) Return(token string, err error) *MockSyncPort_Authenticate_Call {
-	_c.Call.Return(token, err)
+func (_c *MockSyncPort_Authenticate_Call) Return(authResult *port.AuthResult, err error) *MockSyncPort_Authenticate_Call {
+	_c.Call.Return(authResult, err)
 	return _c
 }
 
-func (_c *MockSyncPort_Authenticate_Call) RunAndReturn(run func(ctx context.Context, gpgKeyID string, crypto port.CryptoPort) (string, error)) *MockSyncPort_Authenticate_Call {
+func (_c *MockSyncPort_Authenticate_Call) RunAndReturn(run func(ctx context.Context, gpgKeyID string, crypto port.CryptoPort) (*port.AuthResult, error)) *MockSyncPort_Authenticate_Call {
 	_c.Call.Return(run)
 	return _c
 }

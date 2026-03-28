@@ -107,16 +107,16 @@ func (s *VaultService) UpdateEntry(ctx context.Context, envelope *entity.Envelop
 	return nil
 }
 
-func (s *VaultService) Authenticate(ctx context.Context) (string, error) {
+func (s *VaultService) Authenticate(ctx context.Context) (*port.AuthResult, error) {
 	log := zerowrap.FromCtx(ctx)
 	ctx = zerowrap.CtxWithFields(ctx, map[string]any{
 		zerowrap.FieldLayer:   "domain",
 		zerowrap.FieldUseCase: "Authenticate",
 	})
 
-	token, err := s.sync.Authenticate(ctx, s.gpgKeyID, s.crypto)
+	result, err := s.sync.Authenticate(ctx, s.gpgKeyID, s.crypto)
 	if err != nil {
-		return "", log.WrapErr(err, "authentication failed")
+		return nil, log.WrapErr(err, "authentication failed")
 	}
-	return token, nil
+	return result, nil
 }
