@@ -26,6 +26,9 @@ const (
 	Sekeve_GetEntry_FullMethodName        = "/sekeve.v1.Sekeve/GetEntry"
 	Sekeve_ListEntries_FullMethodName     = "/sekeve.v1.Sekeve/ListEntries"
 	Sekeve_DeleteEntry_FullMethodName     = "/sekeve.v1.Sekeve/DeleteEntry"
+	Sekeve_HasPIN_FullMethodName          = "/sekeve.v1.Sekeve/HasPIN"
+	Sekeve_SetPIN_FullMethodName          = "/sekeve.v1.Sekeve/SetPIN"
+	Sekeve_Unlock_FullMethodName          = "/sekeve.v1.Sekeve/Unlock"
 )
 
 // SekeveClient is the client API for Sekeve service.
@@ -39,6 +42,9 @@ type SekeveClient interface {
 	GetEntry(ctx context.Context, in *GetEntryRequest, opts ...grpc.CallOption) (*Entry, error)
 	ListEntries(ctx context.Context, in *ListEntriesRequest, opts ...grpc.CallOption) (*ListEntriesResponse, error)
 	DeleteEntry(ctx context.Context, in *DeleteEntryRequest, opts ...grpc.CallOption) (*DeleteEntryResponse, error)
+	HasPIN(ctx context.Context, in *HasPINRequest, opts ...grpc.CallOption) (*HasPINResponse, error)
+	SetPIN(ctx context.Context, in *SetPINRequest, opts ...grpc.CallOption) (*SetPINResponse, error)
+	Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error)
 }
 
 type sekeveClient struct {
@@ -119,6 +125,36 @@ func (c *sekeveClient) DeleteEntry(ctx context.Context, in *DeleteEntryRequest, 
 	return out, nil
 }
 
+func (c *sekeveClient) HasPIN(ctx context.Context, in *HasPINRequest, opts ...grpc.CallOption) (*HasPINResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HasPINResponse)
+	err := c.cc.Invoke(ctx, Sekeve_HasPIN_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sekeveClient) SetPIN(ctx context.Context, in *SetPINRequest, opts ...grpc.CallOption) (*SetPINResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetPINResponse)
+	err := c.cc.Invoke(ctx, Sekeve_SetPIN_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *sekeveClient) Unlock(ctx context.Context, in *UnlockRequest, opts ...grpc.CallOption) (*UnlockResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnlockResponse)
+	err := c.cc.Invoke(ctx, Sekeve_Unlock_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SekeveServer is the server API for Sekeve service.
 // All implementations must embed UnimplementedSekeveServer
 // for forward compatibility.
@@ -130,6 +166,9 @@ type SekeveServer interface {
 	GetEntry(context.Context, *GetEntryRequest) (*Entry, error)
 	ListEntries(context.Context, *ListEntriesRequest) (*ListEntriesResponse, error)
 	DeleteEntry(context.Context, *DeleteEntryRequest) (*DeleteEntryResponse, error)
+	HasPIN(context.Context, *HasPINRequest) (*HasPINResponse, error)
+	SetPIN(context.Context, *SetPINRequest) (*SetPINResponse, error)
+	Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error)
 	mustEmbedUnimplementedSekeveServer()
 }
 
@@ -160,6 +199,15 @@ func (UnimplementedSekeveServer) ListEntries(context.Context, *ListEntriesReques
 }
 func (UnimplementedSekeveServer) DeleteEntry(context.Context, *DeleteEntryRequest) (*DeleteEntryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteEntry not implemented")
+}
+func (UnimplementedSekeveServer) HasPIN(context.Context, *HasPINRequest) (*HasPINResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method HasPIN not implemented")
+}
+func (UnimplementedSekeveServer) SetPIN(context.Context, *SetPINRequest) (*SetPINResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetPIN not implemented")
+}
+func (UnimplementedSekeveServer) Unlock(context.Context, *UnlockRequest) (*UnlockResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Unlock not implemented")
 }
 func (UnimplementedSekeveServer) mustEmbedUnimplementedSekeveServer() {}
 func (UnimplementedSekeveServer) testEmbeddedByValue()                {}
@@ -308,6 +356,60 @@ func _Sekeve_DeleteEntry_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Sekeve_HasPIN_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HasPINRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SekeveServer).HasPIN(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Sekeve_HasPIN_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SekeveServer).HasPIN(ctx, req.(*HasPINRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Sekeve_SetPIN_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetPINRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SekeveServer).SetPIN(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Sekeve_SetPIN_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SekeveServer).SetPIN(ctx, req.(*SetPINRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Sekeve_Unlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnlockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SekeveServer).Unlock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Sekeve_Unlock_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SekeveServer).Unlock(ctx, req.(*UnlockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Sekeve_ServiceDesc is the grpc.ServiceDesc for Sekeve service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -342,6 +444,18 @@ var Sekeve_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteEntry",
 			Handler:    _Sekeve_DeleteEntry_Handler,
+		},
+		{
+			MethodName: "HasPIN",
+			Handler:    _Sekeve_HasPIN_Handler,
+		},
+		{
+			MethodName: "SetPIN",
+			Handler:    _Sekeve_SetPIN_Handler,
+		},
+		{
+			MethodName: "Unlock",
+			Handler:    _Sekeve_Unlock_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

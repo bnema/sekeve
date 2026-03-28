@@ -17,6 +17,9 @@ service Sekeve {
   rpc GetEntry(GetEntryRequest) returns (Entry);
   rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse);
   rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
+  rpc HasPIN(HasPINRequest) returns (HasPINResponse);
+  rpc SetPIN(SetPINRequest) returns (SetPINResponse);
+  rpc Unlock(UnlockRequest) returns (UnlockResponse);
 }
 
 message AuthRequest {
@@ -34,6 +37,8 @@ message ChallengeResponse {
 message SessionToken {
   string token = 1;
   int64 expires_at = 2;
+  bool requires_pin = 3;
+  string unlock_ticket = 4;
 }
 
 message Entry {
@@ -77,3 +82,26 @@ message DeleteEntryRequest {
 }
 
 message DeleteEntryResponse {}
+
+message HasPINRequest {}
+
+message HasPINResponse {
+  bool has_pin = 1;
+}
+
+message SetPINRequest {
+  string current_pin = 1; // empty on first setup
+  string new_pin = 2;
+}
+
+message SetPINResponse {}
+
+message UnlockRequest {
+  string unlock_ticket = 1;
+  string pin = 2;
+}
+
+message UnlockResponse {
+  string token = 1;
+  int64 expires_at = 2;
+}

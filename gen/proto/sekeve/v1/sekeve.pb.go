@@ -209,6 +209,8 @@ type SessionToken struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
 	ExpiresAt     int64                  `protobuf:"varint,2,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	RequiresPin   bool                   `protobuf:"varint,3,opt,name=requires_pin,json=requiresPin,proto3" json:"requires_pin,omitempty"`
+	UnlockTicket  string                 `protobuf:"bytes,4,opt,name=unlock_ticket,json=unlockTicket,proto3" json:"unlock_ticket,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -255,6 +257,20 @@ func (x *SessionToken) GetExpiresAt() int64 {
 		return x.ExpiresAt
 	}
 	return 0
+}
+
+func (x *SessionToken) GetRequiresPin() bool {
+	if x != nil {
+		return x.RequiresPin
+	}
+	return false
+}
+
+func (x *SessionToken) GetUnlockTicket() string {
+	if x != nil {
+		return x.UnlockTicket
+	}
+	return ""
 }
 
 type Entry struct {
@@ -729,6 +745,278 @@ func (*DeleteEntryResponse) Descriptor() ([]byte, []int) {
 	return file_sekeve_v1_sekeve_proto_rawDescGZIP(), []int{13}
 }
 
+type HasPINRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HasPINRequest) Reset() {
+	*x = HasPINRequest{}
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HasPINRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HasPINRequest) ProtoMessage() {}
+
+func (x *HasPINRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HasPINRequest.ProtoReflect.Descriptor instead.
+func (*HasPINRequest) Descriptor() ([]byte, []int) {
+	return file_sekeve_v1_sekeve_proto_rawDescGZIP(), []int{14}
+}
+
+type HasPINResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	HasPin        bool                   `protobuf:"varint,1,opt,name=has_pin,json=hasPin,proto3" json:"has_pin,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HasPINResponse) Reset() {
+	*x = HasPINResponse{}
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HasPINResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HasPINResponse) ProtoMessage() {}
+
+func (x *HasPINResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HasPINResponse.ProtoReflect.Descriptor instead.
+func (*HasPINResponse) Descriptor() ([]byte, []int) {
+	return file_sekeve_v1_sekeve_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *HasPINResponse) GetHasPin() bool {
+	if x != nil {
+		return x.HasPin
+	}
+	return false
+}
+
+type SetPINRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CurrentPin    string                 `protobuf:"bytes,1,opt,name=current_pin,json=currentPin,proto3" json:"current_pin,omitempty"` // empty on first setup
+	NewPin        string                 `protobuf:"bytes,2,opt,name=new_pin,json=newPin,proto3" json:"new_pin,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPINRequest) Reset() {
+	*x = SetPINRequest{}
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPINRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPINRequest) ProtoMessage() {}
+
+func (x *SetPINRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPINRequest.ProtoReflect.Descriptor instead.
+func (*SetPINRequest) Descriptor() ([]byte, []int) {
+	return file_sekeve_v1_sekeve_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *SetPINRequest) GetCurrentPin() string {
+	if x != nil {
+		return x.CurrentPin
+	}
+	return ""
+}
+
+func (x *SetPINRequest) GetNewPin() string {
+	if x != nil {
+		return x.NewPin
+	}
+	return ""
+}
+
+type SetPINResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetPINResponse) Reset() {
+	*x = SetPINResponse{}
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetPINResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetPINResponse) ProtoMessage() {}
+
+func (x *SetPINResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetPINResponse.ProtoReflect.Descriptor instead.
+func (*SetPINResponse) Descriptor() ([]byte, []int) {
+	return file_sekeve_v1_sekeve_proto_rawDescGZIP(), []int{17}
+}
+
+type UnlockRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UnlockTicket  string                 `protobuf:"bytes,1,opt,name=unlock_ticket,json=unlockTicket,proto3" json:"unlock_ticket,omitempty"`
+	Pin           string                 `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnlockRequest) Reset() {
+	*x = UnlockRequest{}
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnlockRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnlockRequest) ProtoMessage() {}
+
+func (x *UnlockRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnlockRequest.ProtoReflect.Descriptor instead.
+func (*UnlockRequest) Descriptor() ([]byte, []int) {
+	return file_sekeve_v1_sekeve_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *UnlockRequest) GetUnlockTicket() string {
+	if x != nil {
+		return x.UnlockTicket
+	}
+	return ""
+}
+
+func (x *UnlockRequest) GetPin() string {
+	if x != nil {
+		return x.Pin
+	}
+	return ""
+}
+
+type UnlockResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	ExpiresAt     int64                  `protobuf:"varint,2,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnlockResponse) Reset() {
+	*x = UnlockResponse{}
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnlockResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnlockResponse) ProtoMessage() {}
+
+func (x *UnlockResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_sekeve_v1_sekeve_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnlockResponse.ProtoReflect.Descriptor instead.
+func (*UnlockResponse) Descriptor() ([]byte, []int) {
+	return file_sekeve_v1_sekeve_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *UnlockResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *UnlockResponse) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
 var File_sekeve_v1_sekeve_proto protoreflect.FileDescriptor
 
 const file_sekeve_v1_sekeve_proto_rawDesc = "" +
@@ -740,11 +1028,13 @@ const file_sekeve_v1_sekeve_proto_rawDesc = "" +
 	"\rAuthChallenge\x12/\n" +
 	"\x13encrypted_challenge\x18\x01 \x01(\fR\x12encryptedChallenge\")\n" +
 	"\x11ChallengeResponse\x12\x14\n" +
-	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"C\n" +
+	"\x05nonce\x18\x01 \x01(\tR\x05nonce\"\x8b\x01\n" +
 	"\fSessionToken\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\x02 \x01(\x03R\texpiresAt\"\x96\x02\n" +
+	"expires_at\x18\x02 \x01(\x03R\texpiresAt\x12!\n" +
+	"\frequires_pin\x18\x03 \x01(\bR\vrequiresPin\x12#\n" +
+	"\runlock_ticket\x18\x04 \x01(\tR\funlockTicket\"\x96\x02\n" +
 	"\x05Entry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
@@ -773,12 +1063,27 @@ const file_sekeve_v1_sekeve_proto_rawDesc = "" +
 	"\aentries\x18\x01 \x03(\v2\x10.sekeve.v1.EntryR\aentries\"$\n" +
 	"\x12DeleteEntryRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x15\n" +
-	"\x13DeleteEntryResponse*i\n" +
+	"\x13DeleteEntryResponse\"\x0f\n" +
+	"\rHasPINRequest\")\n" +
+	"\x0eHasPINResponse\x12\x17\n" +
+	"\ahas_pin\x18\x01 \x01(\bR\x06hasPin\"I\n" +
+	"\rSetPINRequest\x12\x1f\n" +
+	"\vcurrent_pin\x18\x01 \x01(\tR\n" +
+	"currentPin\x12\x17\n" +
+	"\anew_pin\x18\x02 \x01(\tR\x06newPin\"\x10\n" +
+	"\x0eSetPINResponse\"F\n" +
+	"\rUnlockRequest\x12#\n" +
+	"\runlock_ticket\x18\x01 \x01(\tR\funlockTicket\x12\x10\n" +
+	"\x03pin\x18\x02 \x01(\tR\x03pin\"E\n" +
+	"\x0eUnlockResponse\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x02 \x01(\x03R\texpiresAt*i\n" +
 	"\tEntryType\x12\x1a\n" +
 	"\x16ENTRY_TYPE_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10ENTRY_TYPE_LOGIN\x10\x01\x12\x15\n" +
 	"\x11ENTRY_TYPE_SECRET\x10\x02\x12\x13\n" +
-	"\x0fENTRY_TYPE_NOTE\x10\x032\x86\x04\n" +
+	"\x0fENTRY_TYPE_NOTE\x10\x032\xc3\x05\n" +
 	"\x06Sekeve\x12@\n" +
 	"\fAuthenticate\x12\x16.sekeve.v1.AuthRequest\x1a\x18.sekeve.v1.AuthChallenge\x12H\n" +
 	"\x0fVerifyChallenge\x12\x1c.sekeve.v1.ChallengeResponse\x1a\x17.sekeve.v1.SessionToken\x12L\n" +
@@ -786,7 +1091,10 @@ const file_sekeve_v1_sekeve_proto_rawDesc = "" +
 	"\vUpdateEntry\x12\x1d.sekeve.v1.UpdateEntryRequest\x1a\x1e.sekeve.v1.UpdateEntryResponse\x128\n" +
 	"\bGetEntry\x12\x1a.sekeve.v1.GetEntryRequest\x1a\x10.sekeve.v1.Entry\x12L\n" +
 	"\vListEntries\x12\x1d.sekeve.v1.ListEntriesRequest\x1a\x1e.sekeve.v1.ListEntriesResponse\x12L\n" +
-	"\vDeleteEntry\x12\x1d.sekeve.v1.DeleteEntryRequest\x1a\x1e.sekeve.v1.DeleteEntryResponseB6Z4github.com/bnema/sekeve/gen/proto/sekeve/v1;sekevev1b\x06proto3"
+	"\vDeleteEntry\x12\x1d.sekeve.v1.DeleteEntryRequest\x1a\x1e.sekeve.v1.DeleteEntryResponse\x12=\n" +
+	"\x06HasPIN\x12\x18.sekeve.v1.HasPINRequest\x1a\x19.sekeve.v1.HasPINResponse\x12=\n" +
+	"\x06SetPIN\x12\x18.sekeve.v1.SetPINRequest\x1a\x19.sekeve.v1.SetPINResponse\x12=\n" +
+	"\x06Unlock\x12\x18.sekeve.v1.UnlockRequest\x1a\x19.sekeve.v1.UnlockResponseB6Z4github.com/bnema/sekeve/gen/proto/sekeve/v1;sekevev1b\x06proto3"
 
 var (
 	file_sekeve_v1_sekeve_proto_rawDescOnce sync.Once
@@ -801,7 +1109,7 @@ func file_sekeve_v1_sekeve_proto_rawDescGZIP() []byte {
 }
 
 var file_sekeve_v1_sekeve_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_sekeve_v1_sekeve_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_sekeve_v1_sekeve_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_sekeve_v1_sekeve_proto_goTypes = []any{
 	(EntryType)(0),              // 0: sekeve.v1.EntryType
 	(*AuthRequest)(nil),         // 1: sekeve.v1.AuthRequest
@@ -818,11 +1126,17 @@ var file_sekeve_v1_sekeve_proto_goTypes = []any{
 	(*ListEntriesResponse)(nil), // 12: sekeve.v1.ListEntriesResponse
 	(*DeleteEntryRequest)(nil),  // 13: sekeve.v1.DeleteEntryRequest
 	(*DeleteEntryResponse)(nil), // 14: sekeve.v1.DeleteEntryResponse
-	nil,                         // 15: sekeve.v1.Entry.MetaEntry
+	(*HasPINRequest)(nil),       // 15: sekeve.v1.HasPINRequest
+	(*HasPINResponse)(nil),      // 16: sekeve.v1.HasPINResponse
+	(*SetPINRequest)(nil),       // 17: sekeve.v1.SetPINRequest
+	(*SetPINResponse)(nil),      // 18: sekeve.v1.SetPINResponse
+	(*UnlockRequest)(nil),       // 19: sekeve.v1.UnlockRequest
+	(*UnlockResponse)(nil),      // 20: sekeve.v1.UnlockResponse
+	nil,                         // 21: sekeve.v1.Entry.MetaEntry
 }
 var file_sekeve_v1_sekeve_proto_depIdxs = []int32{
 	0,  // 0: sekeve.v1.Entry.type:type_name -> sekeve.v1.EntryType
-	15, // 1: sekeve.v1.Entry.meta:type_name -> sekeve.v1.Entry.MetaEntry
+	21, // 1: sekeve.v1.Entry.meta:type_name -> sekeve.v1.Entry.MetaEntry
 	5,  // 2: sekeve.v1.CreateEntryRequest.entry:type_name -> sekeve.v1.Entry
 	5,  // 3: sekeve.v1.UpdateEntryRequest.entry:type_name -> sekeve.v1.Entry
 	0,  // 4: sekeve.v1.ListEntriesRequest.type:type_name -> sekeve.v1.EntryType
@@ -834,15 +1148,21 @@ var file_sekeve_v1_sekeve_proto_depIdxs = []int32{
 	10, // 10: sekeve.v1.Sekeve.GetEntry:input_type -> sekeve.v1.GetEntryRequest
 	11, // 11: sekeve.v1.Sekeve.ListEntries:input_type -> sekeve.v1.ListEntriesRequest
 	13, // 12: sekeve.v1.Sekeve.DeleteEntry:input_type -> sekeve.v1.DeleteEntryRequest
-	2,  // 13: sekeve.v1.Sekeve.Authenticate:output_type -> sekeve.v1.AuthChallenge
-	4,  // 14: sekeve.v1.Sekeve.VerifyChallenge:output_type -> sekeve.v1.SessionToken
-	7,  // 15: sekeve.v1.Sekeve.CreateEntry:output_type -> sekeve.v1.CreateEntryResponse
-	9,  // 16: sekeve.v1.Sekeve.UpdateEntry:output_type -> sekeve.v1.UpdateEntryResponse
-	5,  // 17: sekeve.v1.Sekeve.GetEntry:output_type -> sekeve.v1.Entry
-	12, // 18: sekeve.v1.Sekeve.ListEntries:output_type -> sekeve.v1.ListEntriesResponse
-	14, // 19: sekeve.v1.Sekeve.DeleteEntry:output_type -> sekeve.v1.DeleteEntryResponse
-	13, // [13:20] is the sub-list for method output_type
-	6,  // [6:13] is the sub-list for method input_type
+	15, // 13: sekeve.v1.Sekeve.HasPIN:input_type -> sekeve.v1.HasPINRequest
+	17, // 14: sekeve.v1.Sekeve.SetPIN:input_type -> sekeve.v1.SetPINRequest
+	19, // 15: sekeve.v1.Sekeve.Unlock:input_type -> sekeve.v1.UnlockRequest
+	2,  // 16: sekeve.v1.Sekeve.Authenticate:output_type -> sekeve.v1.AuthChallenge
+	4,  // 17: sekeve.v1.Sekeve.VerifyChallenge:output_type -> sekeve.v1.SessionToken
+	7,  // 18: sekeve.v1.Sekeve.CreateEntry:output_type -> sekeve.v1.CreateEntryResponse
+	9,  // 19: sekeve.v1.Sekeve.UpdateEntry:output_type -> sekeve.v1.UpdateEntryResponse
+	5,  // 20: sekeve.v1.Sekeve.GetEntry:output_type -> sekeve.v1.Entry
+	12, // 21: sekeve.v1.Sekeve.ListEntries:output_type -> sekeve.v1.ListEntriesResponse
+	14, // 22: sekeve.v1.Sekeve.DeleteEntry:output_type -> sekeve.v1.DeleteEntryResponse
+	16, // 23: sekeve.v1.Sekeve.HasPIN:output_type -> sekeve.v1.HasPINResponse
+	18, // 24: sekeve.v1.Sekeve.SetPIN:output_type -> sekeve.v1.SetPINResponse
+	20, // 25: sekeve.v1.Sekeve.Unlock:output_type -> sekeve.v1.UnlockResponse
+	16, // [16:26] is the sub-list for method output_type
+	6,  // [6:16] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
 	6,  // [6:6] is the sub-list for extension extendee
 	0,  // [0:6] is the sub-list for field type_name
@@ -859,7 +1179,7 @@ func file_sekeve_v1_sekeve_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_sekeve_v1_sekeve_proto_rawDesc), len(file_sekeve_v1_sekeve_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   15,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
