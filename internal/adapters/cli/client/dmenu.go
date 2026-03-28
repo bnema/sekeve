@@ -121,7 +121,7 @@ func NewDmenuCmd() *cobra.Command {
 						return
 					}
 					log.Debug().Str("tool", clipName).Msg("clipboard copy succeeded")
-					_ = exec.CommandContext(ctx, "notify-send", "-a", "sekeve", "-i", "dialog-password", "Sekeve", "Password copied to clipboard").Run()
+					cliconfig.SendNotification(ctx, "Password copied to clipboard")
 				})
 
 				if decryptErr != nil {

@@ -56,6 +56,11 @@ func ReadPassword(prompt string) (string, error) {
 	return string(b), nil
 }
 
+// SendNotification sends a best-effort desktop notification via notify-send.
+func SendNotification(ctx context.Context, body string) {
+	_ = exec.CommandContext(ctx, "notify-send", "-a", "sekeve", "-i", "dialog-password", "Sekeve", body).Run()
+}
+
 // execPINPrompt spawns "sekeve pin-prompt" as a subprocess and reads the PIN from stdout.
 func execPINPrompt(ctx context.Context, errorMode bool, message string) (string, error) {
 	exePath, err := os.Executable()
@@ -174,8 +179,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		if err != nil {
 			clientApp.Close(ctx)
 			if !isTTY {
-				// Best-effort desktop notification (Linux notify-send); silently ignored if unavailable.
-				_ = exec.CommandContext(ctx, "notify-send", "-a", "sekeve", "-i", "dialog-password", "Sekeve", "PIN unlock failed").Run()
+				SendNotification(ctx, "PIN unlock failed")
 			}
 			return nil, log.WrapErr(err, "unlock failed")
 		}

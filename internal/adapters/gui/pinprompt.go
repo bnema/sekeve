@@ -61,7 +61,7 @@ func RunPINPrompt(errorMode bool, message string) (string, error) {
 		editor.SingleLine = true
 		editor.Submit = true
 		editor.Mask = '●'
-		editor.MaxLen = 32
+		editor.MaxLen = 6
 
 		focused := false
 
