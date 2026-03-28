@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/bnema/sekeve/internal/app"
@@ -13,6 +15,8 @@ import (
 	"github.com/bnema/zerowrap"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // CLI flag vars — overrides for config file values.
@@ -52,6 +56,33 @@ func ReadPassword(prompt string) (string, error) {
 	return string(b), nil
 }
 
+// execPINPrompt spawns "sekeve pin-prompt" as a subprocess and reads the PIN from stdout.
+func execPINPrompt(ctx context.Context, errorMode bool, message string) (string, error) {
+	exePath, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	args := []string{"pin-prompt"}
+	if errorMode {
+		args = append(args, "--error")
+	}
+	if message != "" {
+		args = append(args, "--message", message)
+	}
+
+	cmd := exec.CommandContext(ctx, exePath, args...)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("PIN prompt cancelled or failed: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, error) {
 	log := zerowrap.FromCtx(ctx)
 
@@ -89,16 +120,60 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 	}
 
 	if authResult.RequiresPIN {
-		pin, pinErr := ReadPassword("Unlock PIN: ")
+		isTTY := term.IsTerminal(int(os.Stdin.Fd()))
+
+		readPIN := func(errorMode bool, message string) (string, error) {
+			if isTTY {
+				return ReadPassword("Unlock PIN: ")
+			}
+			return execPINPrompt(ctx, errorMode, message)
+		}
+
+		pin, pinErr := readPIN(false, "")
 		if pinErr != nil {
 			clientApp.Close(ctx)
 			return nil, fmt.Errorf("failed to read PIN: %w", pinErr)
 		}
 
-		token, expiresAt, unlockErr := clientApp.Sync.Unlock(ctx, authResult.UnlockTicket, pin)
-		if unlockErr != nil {
+		var token string
+		var expiresAt time.Time
+		for attempts := 0; attempts < 3; attempts++ {
+			token, expiresAt, err = clientApp.Sync.Unlock(ctx, authResult.UnlockTicket, pin)
+			if err == nil {
+				break
+			}
+
+			st, ok := status.FromError(err)
+			if !ok {
+				break
+			}
+
+			switch st.Code() {
+			case codes.PermissionDenied:
+				pin, pinErr = readPIN(true, "")
+			case codes.Unauthenticated:
+				authResult, err = clientApp.Vault.Authenticate(ctx)
+				if err != nil {
+					break
+				}
+				pin, pinErr = readPIN(true, "Session expired, enter PIN again")
+			case codes.ResourceExhausted:
+				pin, pinErr = readPIN(true, st.Message())
+			default:
+				pinErr = err
+			}
+
+			if pinErr != nil {
+				break
+			}
+		}
+
+		if err != nil {
 			clientApp.Close(ctx)
-			return nil, log.WrapErr(unlockErr, "unlock failed")
+			if !isTTY {
+				_ = exec.CommandContext(ctx, "notify-send", "-a", "sekeve", "-i", "dialog-password", "Sekeve", "PIN unlock failed").Run()
+			}
+			return nil, log.WrapErr(err, "unlock failed")
 		}
 
 		cacheSession(token, expiresAt)
