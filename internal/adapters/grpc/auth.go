@@ -193,6 +193,8 @@ func (a *AuthManager) validateToken(token string) bool {
 var skipAuthMethods = map[string]bool{
 	"/sekeve.v1.Sekeve/Authenticate":    true,
 	"/sekeve.v1.Sekeve/VerifyChallenge": true,
+	"/sekeve.v1.Sekeve/HasPIN":          true,
+	"/sekeve.v1.Sekeve/Unlock":          true,
 	"/grpc.health.v1.Health/Check":      true,
 }
 

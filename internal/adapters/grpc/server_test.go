@@ -193,3 +193,186 @@ func TestCreateDuplicateNameAllowed(t *testing.T) {
 
 	assert.NotEqual(t, resp1.Id, resp2.Id)
 }
+
+// setupTestServerWithAuth is like setupTestServer but also returns the AuthManager so
+// tests that need to generate unlock tickets can do so directly.
+func setupTestServerWithAuth(t *testing.T) (sekevev1.SekeveClient, *grpcadapter.AuthManager, func()) {
+	t.Helper()
+
+	ctx := context.Background()
+	store, err := storage.NewBboltStore(ctx, filepath.Join(t.TempDir(), "test.db"))
+	require.NoError(t, err)
+
+	auth := grpcadapter.NewAuthManager([]byte("test-public-key"))
+	auth.SetTestToken("test-token")
+
+	srv := grpcadapter.NewServer(ctx, store, auth)
+
+	lis := bufconn.Listen(1024 * 1024)
+	go func() {
+		_ = srv.ServeListener(ctx, lis)
+	}()
+
+	conn, err := grpc.NewClient("passthrough:///bufconn",
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return lis.DialContext(ctx)
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+
+	client := sekevev1.NewSekeveClient(conn)
+	return client, auth, func() {
+		require.NoError(t, conn.Close())
+		require.NoError(t, store.Close(ctx))
+	}
+}
+
+// --- HasPIN tests ---
+
+func TestHasPIN_NoPIN(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	resp, err := client.HasPIN(context.Background(), &sekevev1.HasPINRequest{})
+	require.NoError(t, err)
+	assert.False(t, resp.HasPin)
+}
+
+func TestHasPIN_AfterSetPIN(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "1234"})
+	require.NoError(t, err)
+
+	resp, err := client.HasPIN(context.Background(), &sekevev1.HasPINRequest{})
+	require.NoError(t, err)
+	assert.True(t, resp.HasPin)
+}
+
+// --- SetPIN tests ---
+
+func TestSetPIN_FirstTime(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "1234"})
+	require.NoError(t, err)
+
+	resp, err := client.HasPIN(context.Background(), &sekevev1.HasPINRequest{})
+	require.NoError(t, err)
+	assert.True(t, resp.HasPin)
+}
+
+func TestSetPIN_ChangePIN(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	// Set initial PIN.
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "1234"})
+	require.NoError(t, err)
+
+	// Change PIN — must supply correct current PIN.
+	_, err = client.SetPIN(ctx, &sekevev1.SetPINRequest{CurrentPin: "1234", NewPin: "5678"})
+	require.NoError(t, err)
+}
+
+func TestSetPIN_WrongCurrentPIN(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "1234"})
+	require.NoError(t, err)
+
+	_, err = client.SetPIN(ctx, &sekevev1.SetPINRequest{CurrentPin: "wrong", NewPin: "5678"})
+	require.Error(t, err)
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.PermissionDenied, st.Code())
+}
+
+func TestSetPIN_TooShort(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "12"})
+	require.Error(t, err)
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+// --- Unlock tests ---
+
+func TestUnlock_ValidTicketAndPIN(t *testing.T) {
+	client, auth, cleanup := setupTestServerWithAuth(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	// Set PIN first.
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "5678"})
+	require.NoError(t, err)
+
+	// Generate a challenge nonce and verify it to receive an unlock ticket.
+	nonce, err := auth.GenerateChallenge(context.Background())
+	require.NoError(t, err)
+	result, err := auth.VerifyNonce(context.Background(), nonce)
+	require.NoError(t, err)
+	require.True(t, result.RequiresPIN)
+
+	// Unlock with valid ticket and correct PIN.
+	resp, err := client.Unlock(context.Background(), &sekevev1.UnlockRequest{
+		UnlockTicket: result.UnlockTicket,
+		Pin:          "5678",
+	})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.Token)
+	assert.NotZero(t, resp.ExpiresAt)
+}
+
+func TestUnlock_WrongPIN(t *testing.T) {
+	client, auth, cleanup := setupTestServerWithAuth(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "5678"})
+	require.NoError(t, err)
+
+	nonce, err := auth.GenerateChallenge(context.Background())
+	require.NoError(t, err)
+	result, err := auth.VerifyNonce(context.Background(), nonce)
+	require.NoError(t, err)
+
+	_, err = client.Unlock(context.Background(), &sekevev1.UnlockRequest{
+		UnlockTicket: result.UnlockTicket,
+		Pin:          "0000",
+	})
+	require.Error(t, err)
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.PermissionDenied, st.Code())
+}
+
+func TestUnlock_NoPINConfigured(t *testing.T) {
+	client, auth, cleanup := setupTestServerWithAuth(t)
+	defer cleanup()
+
+	// Force pinConfigured so VerifyNonce returns an unlock ticket, but no PIN is stored.
+	auth.SetPINConfigured(true)
+
+	nonce, err := auth.GenerateChallenge(context.Background())
+	require.NoError(t, err)
+	result, err := auth.VerifyNonce(context.Background(), nonce)
+	require.NoError(t, err)
+
+	_, err = client.Unlock(context.Background(), &sekevev1.UnlockRequest{
+		UnlockTicket: result.UnlockTicket,
+		Pin:          "1234",
+	})
+	require.Error(t, err)
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.FailedPrecondition, st.Code())
+}

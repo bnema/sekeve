@@ -11,6 +11,7 @@ import (
 	"unicode"
 
 	sekevev1 "github.com/bnema/sekeve/gen/proto/sekeve/v1"
+	adaptercrypto "github.com/bnema/sekeve/internal/adapters/crypto"
 	"github.com/bnema/sekeve/internal/domain/entity"
 	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
@@ -37,6 +38,11 @@ func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager)
 	s := &Server{
 		storage: storage,
 		auth:    auth,
+	}
+
+	// Check if PIN is already configured so auth interceptor knows about it.
+	if _, _, err := storage.GetPINHash(ctx); err == nil {
+		auth.SetPINConfigured(true)
 	}
 
 	s.grpcServer = grpc.NewServer(
@@ -246,4 +252,60 @@ func (s *Server) DeleteEntry(ctx context.Context, req *sekevev1.DeleteEntryReque
 	}
 
 	return &sekevev1.DeleteEntryResponse{}, nil
+}
+
+// HasPIN reports whether a PIN has been configured on the server.
+// This RPC is unauthenticated (listed in skipAuthMethods).
+func (s *Server) HasPIN(ctx context.Context, _ *sekevev1.HasPINRequest) (*sekevev1.HasPINResponse, error) {
+	_, _, err := s.storage.GetPINHash(ctx)
+	return &sekevev1.HasPINResponse{HasPin: err == nil}, nil
+}
+
+// SetPIN stores (or changes) the server PIN. Requires a valid session token.
+// When a PIN already exists the request must include the correct current PIN.
+func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*sekevev1.SetPINResponse, error) {
+	if len(req.NewPin) < 4 || len(req.NewPin) > 6 {
+		return nil, status.Errorf(codes.InvalidArgument, "PIN must be 4-6 digits")
+	}
+
+	existingHash, existingSalt, err := s.storage.GetPINHash(ctx)
+	if err == nil {
+		// A PIN is already set — caller must supply the correct current PIN.
+		if !adaptercrypto.VerifyPIN(req.CurrentPin, existingHash, existingSalt) {
+			return nil, status.Errorf(codes.PermissionDenied, "incorrect current PIN")
+		}
+	}
+
+	hash, salt, err := adaptercrypto.HashPIN(req.NewPin)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to hash PIN: %v", err)
+	}
+	if err := s.storage.StorePINHash(ctx, hash, salt); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to store PIN: %v", err)
+	}
+
+	s.auth.SetPINConfigured(true)
+	return &sekevev1.SetPINResponse{}, nil
+}
+
+// Unlock exchanges a one-time unlock ticket and PIN for a session token.
+// This RPC is unauthenticated (listed in skipAuthMethods).
+func (s *Server) Unlock(ctx context.Context, req *sekevev1.UnlockRequest) (*sekevev1.UnlockResponse, error) {
+	hash, salt, err := s.storage.GetPINHash(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "no PIN configured")
+	}
+	if !adaptercrypto.VerifyPIN(req.Pin, hash, salt) {
+		return nil, status.Errorf(codes.PermissionDenied, "incorrect PIN")
+	}
+
+	token, expiresAt, err := s.auth.RedeemUnlockTicket(ctx, req.UnlockTicket)
+	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid unlock ticket: %v", err)
+	}
+
+	return &sekevev1.UnlockResponse{
+		Token:     token,
+		ExpiresAt: expiresAt.Unix(),
+	}, nil
 }
