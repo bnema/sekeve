@@ -72,6 +72,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(client.NewInitCmd())
 	root.AddCommand(client.NewImportCmd())
 	root.AddCommand(client.NewInjectCmd())
+	root.AddCommand(client.NewPINCmd())
 
 	serverCmd := &cobra.Command{Use: "server", Short: "Server management commands"}
 	serverCmd.AddCommand(server.NewStartCmd())
