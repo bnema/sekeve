@@ -18,13 +18,17 @@ import (
 )
 
 func NewInitCmd() *cobra.Command {
+	var force bool
+
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Set up the sekeve client",
 		Long: `Initialize the sekeve client configuration.
 
 Prompts for the server address and GPG key ID, then writes
-the configuration and tests the server connection.`,
+the configuration and tests the server connection.
+
+Use --force to reconfigure and clear any cached session.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			log := zerowrap.FromCtx(ctx)
@@ -36,9 +40,14 @@ the configuration and tests the server connection.`,
 				return fmt.Errorf("unexpected config type")
 			}
 
-			if !viperCfg.IsUnconfigured() {
-				_ = styles.RenderSuccess(os.Stdout, "Client already configured")
+			if !viperCfg.IsUnconfigured() && !force {
+				_ = styles.RenderSuccess(os.Stdout, "Client already configured (use --force to reconfigure)")
 				return nil
+			}
+
+			// Clear stale session token so the next command re-authenticates.
+			if err := viperCfg.ClearSession(ctx); err != nil {
+				log.Debug().Err(err).Msg("failed to clear session (may not exist)")
 			}
 
 			result, err := cliconfig.RunOnboarding()
@@ -68,6 +77,7 @@ the configuration and tests the server connection.`,
 		},
 	}
 
+	cmd.Flags().BoolVar(&force, "force", false, "Reconfigure and clear cached session")
 	return cmd
 }
 

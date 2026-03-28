@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/bnema/sekeve/internal/domain/entity"
 )
@@ -15,6 +16,10 @@ const (
 	bwTypeIdentity   = 4
 	bwTypeSSHKey     = 5
 )
+
+func isImportableItem(item BitwardenItem) bool {
+	return strings.TrimSpace(item.Name) != "" && (item.Type == bwTypeLogin || item.Type == bwTypeSecureNote)
+}
 
 type BitwardenExport struct {
 	Encrypted bool            `json:"encrypted"`

@@ -115,7 +115,7 @@ sekeve rm stripe-key
 List all entries in a picker-friendly format, then copy the selected value to clipboard:
 
 ```bash
-sekeve dmenu --copy "$(sekeve dmenu --list | fuzzel --dmenu)"
+sekeve dmenu --copy "$(sekeve dmenu --list | fuzzel --dmenu --with-nth=1 --accept-nth=2)"
 ```
 
 Logins copy the password, secrets copy the value, notes copy the full content.

@@ -101,6 +101,15 @@ func (c *ViperConfig) SaveSessionToken(_ context.Context, token string, ttl int6
 	return os.WriteFile(filepath.Join(c.cfgDir, "session"), data, 0600)
 }
 
+// ClearSession removes the cached session token file.
+func (c *ViperConfig) ClearSession(_ context.Context) error {
+	err := os.Remove(filepath.Join(c.cfgDir, "session"))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
 // SetOverride allows CLI flags to override config file values.
 func (c *ViperConfig) SetOverride(key, value string) {
 	c.v.Set(key, value)

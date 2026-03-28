@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/cli/styles"
 	"github.com/bnema/sekeve/internal/domain/entity"
+	"github.com/bnema/zerowrap"
 	"github.com/spf13/cobra"
 )
 
@@ -22,13 +24,17 @@ func NewDmenuCmd() *cobra.Command {
 		Short: "dmenu/rofi integration for secret picker",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
+			log := zerowrap.FromCtx(ctx)
+			log.Debug().Bool("list", listMode).Str("copy", copySelection).Msg("dmenu invoked")
 
 			cfg := cliconfig.ConfigFromCmd(cmd)
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
 			if err != nil {
+				log.Error().Err(err).Msg("connect/auth failed")
 				_ = styles.RenderError(os.Stderr, err)
 				return err
 			}
+			log.Debug().Msg("connected and authenticated")
 			defer func() {
 				if err := clientApp.Close(ctx); err != nil {
 					_ = styles.RenderError(os.Stderr, err)
@@ -38,9 +44,11 @@ func NewDmenuCmd() *cobra.Command {
 			if listMode {
 				entries, err := clientApp.Vault.ListEntries(ctx, entity.EntryTypeUnspecified)
 				if err != nil {
+					log.Error().Err(err).Msg("list entries failed")
 					_ = styles.RenderError(os.Stderr, err)
 					return err
 				}
+				log.Debug().Int("count", len(entries)).Msg("listing entries")
 				for _, e := range entries {
 					fmt.Println(formatDmenuLine(e))
 				}
@@ -48,18 +56,23 @@ func NewDmenuCmd() *cobra.Command {
 			}
 
 			if copySelection != "" {
+				log.Debug().Str("raw", copySelection).Msg("raw selection")
 				id := parseDmenuSelection(copySelection)
+				log.Debug().Str("id", id).Msg("parsed selection")
 				if id == "" {
 					err := fmt.Errorf("could not parse selection: %q", copySelection)
+					log.Error().Err(err).Msg("parse failed")
 					_ = styles.RenderError(os.Stderr, err)
 					return err
 				}
 
 				env, err := clientApp.Vault.GetEntry(ctx, id)
 				if err != nil {
+					log.Error().Err(err).Str("id", id).Msg("GetEntry failed")
 					_ = styles.RenderError(os.Stderr, err)
 					return err
 				}
+				log.Debug().Str("name", env.Name).Int("type", int(env.Type)).Msg("got entry")
 
 				var copyErr error
 				decryptErr := clientApp.Vault.DecryptAndUse(ctx, env.Payload, func(plaintext []byte) {
@@ -69,6 +82,7 @@ func NewDmenuCmd() *cobra.Command {
 						var login entity.Login
 						if err := json.Unmarshal(plaintext, &login); err != nil {
 							copyErr = err
+							log.Error().Err(err).Msg("unmarshal login failed")
 							return
 						}
 						value = login.Password
@@ -76,6 +90,7 @@ func NewDmenuCmd() *cobra.Command {
 						var secret entity.Secret
 						if err := json.Unmarshal(plaintext, &secret); err != nil {
 							copyErr = err
+							log.Error().Err(err).Msg("unmarshal secret failed")
 							return
 						}
 						value = secret.Value
@@ -83,6 +98,7 @@ func NewDmenuCmd() *cobra.Command {
 						var note entity.Note
 						if err := json.Unmarshal(plaintext, &note); err != nil {
 							copyErr = err
+							log.Error().Err(err).Msg("unmarshal note failed")
 							return
 						}
 						value = note.Content
@@ -90,22 +106,30 @@ func NewDmenuCmd() *cobra.Command {
 						value = string(plaintext)
 					}
 
-					wlCopy := exec.CommandContext(ctx, "wl-copy")
-					wlCopy.Stdin = strings.NewReader(value)
-					wlCopy.Stderr = os.Stderr
-					if err := wlCopy.Run(); err != nil {
-						copyErr = fmt.Errorf("wl-copy failed: %w", err)
+					log.Debug().Int("len", len(value)).Msg("decrypted, copying to clipboard")
+					clipCmd, clipName := clipboardCmd(ctx)
+					clipCmd.Stdin = strings.NewReader(value)
+					clipCmd.Stderr = os.Stderr
+					if err := clipCmd.Run(); err != nil {
+						copyErr = fmt.Errorf("%s failed: %w", clipName, err)
+						log.Error().Err(err).Str("tool", clipName).Msg("clipboard copy failed")
+						return
 					}
+					log.Debug().Str("tool", clipName).Msg("clipboard copy succeeded")
+					_ = exec.CommandContext(ctx, "notify-send", "-a", "sekeve", "-i", "dialog-password", "Sekeve", "Password copied to clipboard").Run()
 				})
 
 				if decryptErr != nil {
+					log.Error().Err(decryptErr).Msg("decrypt failed")
 					_ = styles.RenderError(os.Stderr, decryptErr)
 					return decryptErr
 				}
 				if copyErr != nil {
+					log.Error().Err(copyErr).Msg("copy failed")
 					_ = styles.RenderError(os.Stderr, copyErr)
 					return copyErr
 				}
+				log.Debug().Msg("dmenu copy done")
 				return nil
 			}
 
@@ -131,23 +155,23 @@ func formatDmenuLine(e *entity.Envelope) string {
 	}
 }
 
+// clipboardCmd returns an exec.Cmd that writes stdin to the system clipboard,
+// along with the tool name for logging. Prefers wl-copy on Wayland, falls back
+// to xclip on X11.
+func clipboardCmd(ctx context.Context) (*exec.Cmd, string) {
+	if os.Getenv("WAYLAND_DISPLAY") != "" {
+		return exec.CommandContext(ctx, "wl-copy"), "wl-copy"
+	}
+	return exec.CommandContext(ctx, "xclip", "-selection", "clipboard"), "xclip"
+}
+
 func parseDmenuSelection(selection string) string {
 	s := strings.TrimSpace(selection)
+	// With fuzzel --accept-nth=2, the selection is just the ID.
+	// Also handle the full "label\tid" line for other dmenu implementations.
 	parts := strings.SplitN(s, "\t", 2)
 	if len(parts) == 2 {
 		return strings.TrimSpace(parts[1])
 	}
-
-	for len(s) > 0 {
-		r := []rune(s)[0]
-		if r > 0x2000 || r == ' ' {
-			s = strings.TrimSpace(string([]rune(s)[1:]))
-		} else {
-			break
-		}
-	}
-	// Fallback for non-tab-separated input: best effort only. The primary path is
-	// "label<TAB>id"; this fallback returns the cleaned token unchanged so pasted
-	// IDs still work, and server-side lookup returns a clear error if it is not an ID.
-	return strings.TrimSpace(s)
+	return s
 }

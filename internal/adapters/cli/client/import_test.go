@@ -1,10 +1,9 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/bnema/sekeve/internal/domain/entity"
@@ -12,9 +11,10 @@ import (
 
 // mockVault implements VaultImporter for testing.
 type mockVault struct {
-	existing []*entity.Envelope
-	listErr  error
-	addErr   error
+	existing  []*entity.Envelope
+	listErr   error
+	addErr    error
+	deleteErr error
 }
 
 func (m *mockVault) ListEntries(_ context.Context, _ entity.EntryType) ([]*entity.Envelope, error) {
@@ -28,17 +28,17 @@ func (m *mockVault) AddEntry(_ context.Context, _ *entity.Envelope) error {
 	return m.addErr
 }
 
+func (m *mockVault) DeleteEntry(_ context.Context, _ string) error {
+	return m.deleteErr
+}
+
 func TestProcessImport_ListEntriesFails(t *testing.T) {
 	vault := &mockVault{listErr: fmt.Errorf("connection refused")}
 	export := BitwardenExport{Items: []BitwardenItem{{Type: 1, Name: "test"}}}
-	var buf bytes.Buffer
 
-	_, err := processImport(context.Background(), vault, export, &buf)
+	_, err := processImport(context.Background(), vault, export, false, nil)
 	if err == nil {
 		t.Fatal("expected error when ListEntries fails")
-	}
-	if !strings.Contains(err.Error(), "failed to list existing entries") {
-		t.Errorf("error = %q, want to contain 'failed to list existing entries'", err.Error())
 	}
 }
 
@@ -55,9 +55,8 @@ func TestProcessImport_ServerDuplicate(t *testing.T) {
 			{Type: 1, Name: "GitHub", Login: &BitwardenLogin{Username: "a", Password: "b"}},
 		},
 	}
-	var buf bytes.Buffer
 
-	result, err := processImport(context.Background(), vault, export, &buf)
+	result, err := processImport(context.Background(), vault, export, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -66,9 +65,6 @@ func TestProcessImport_ServerDuplicate(t *testing.T) {
 	}
 	if result.Imported != 0 {
 		t.Errorf("Imported = %d, want 0", result.Imported)
-	}
-	if !strings.Contains(buf.String(), "skipped duplicate") {
-		t.Errorf("output = %q, want to contain 'skipped duplicate'", buf.String())
 	}
 }
 
@@ -80,9 +76,8 @@ func TestProcessImport_InFileDuplicate(t *testing.T) {
 			{Type: 1, Name: "GitHub", Login: &BitwardenLogin{Username: "a", Password: "d"}},
 		},
 	}
-	var buf bytes.Buffer
 
-	result, err := processImport(context.Background(), vault, export, &buf)
+	result, err := processImport(context.Background(), vault, export, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -104,9 +99,8 @@ func TestProcessImport_UnsupportedTypes(t *testing.T) {
 			{Type: 99, Name: "Unknown"},
 		},
 	}
-	var buf bytes.Buffer
 
-	result, err := processImport(context.Background(), vault, export, &buf)
+	result, err := processImport(context.Background(), vault, export, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -126,17 +120,13 @@ func TestProcessImport_EmptyName(t *testing.T) {
 			{Type: 2, Name: "   "},
 		},
 	}
-	var buf bytes.Buffer
 
-	result, err := processImport(context.Background(), vault, export, &buf)
+	result, err := processImport(context.Background(), vault, export, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Invalid != 2 {
 		t.Errorf("Invalid = %d, want 2", result.Invalid)
-	}
-	if !strings.Contains(buf.String(), "skipped item with empty name") {
-		t.Errorf("output = %q, want to contain 'skipped item with empty name'", buf.String())
 	}
 }
 
@@ -158,9 +148,8 @@ func TestProcessImport_MixedImport(t *testing.T) {
 			{Type: 1, Name: "Login1", Login: &BitwardenLogin{Username: "a", Password: "f"}},
 		},
 	}
-	var buf bytes.Buffer
 
-	result, err := processImport(context.Background(), vault, export, &buf)
+	result, err := processImport(context.Background(), vault, export, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -186,9 +175,8 @@ func TestProcessImport_AddEntryFails(t *testing.T) {
 			{Type: 2, Name: "Note1", Notes: "content"},
 		},
 	}
-	var buf bytes.Buffer
 
-	result, err := processImport(context.Background(), vault, export, &buf)
+	result, err := processImport(context.Background(), vault, export, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -198,25 +186,45 @@ func TestProcessImport_AddEntryFails(t *testing.T) {
 	if result.Imported != 0 {
 		t.Errorf("Imported = %d, want 0", result.Imported)
 	}
-	if !strings.Contains(buf.String(), "failed to import") {
-		t.Errorf("output = %q, want to contain 'failed to import'", buf.String())
-	}
 }
 
 func TestProcessImport_EmptyItems(t *testing.T) {
 	vault := &mockVault{}
 	export := BitwardenExport{Items: []BitwardenItem{}}
-	var buf bytes.Buffer
 
-	result, err := processImport(context.Background(), vault, export, &buf)
+	result, err := processImport(context.Background(), vault, export, false, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Imported != 0 {
 		t.Errorf("Imported = %d, want 0", result.Imported)
 	}
-	if !strings.Contains(buf.String(), "nothing to import") {
-		t.Errorf("output = %q, want to contain 'nothing to import'", buf.String())
+}
+
+func TestProcessImport_ProgressCallback(t *testing.T) {
+	vault := &mockVault{}
+	export := BitwardenExport{
+		Items: []BitwardenItem{
+			{Type: 1, Name: "Login1", Login: &BitwardenLogin{Username: "a", Password: "b"}},
+			{Type: 2, Name: "Note1", Notes: "content"},
+		},
+	}
+
+	var calls atomic.Int64
+	result, err := processImport(context.Background(), vault, export, false, func(done, total int) {
+		calls.Add(1)
+		if total != 2 {
+			t.Errorf("total = %d, want 2", total)
+		}
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Imported != 2 {
+		t.Errorf("Imported = %d, want 2", result.Imported)
+	}
+	if calls.Load() != 2 {
+		t.Errorf("progress callback called %d times, want 2", calls.Load())
 	}
 }
 
