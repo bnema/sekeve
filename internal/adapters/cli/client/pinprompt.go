@@ -3,7 +3,9 @@
 package client
 
 import (
+	"errors"
 	"fmt"
+	"os"
 
 	"github.com/bnema/sekeve/internal/adapters/gui"
 	"github.com/spf13/cobra"
@@ -14,11 +16,15 @@ func NewPINPromptCmd() *cobra.Command {
 	var message string
 
 	cmd := &cobra.Command{
-		Use:    "pin-prompt",
-		Short:  "GUI PIN prompt (internal)",
-		Hidden: true,
+		Use:          "pin-prompt",
+		Short:        "GUI PIN prompt (internal)",
+		Hidden:       true,
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pin, err := gui.RunPINPrompt(errorMode, message)
+			if errors.Is(err, gui.ErrCancelled) {
+				os.Exit(1)
+			}
 			if err != nil {
 				return err
 			}

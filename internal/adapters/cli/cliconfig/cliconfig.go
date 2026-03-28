@@ -164,6 +164,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 			}
 
 			if pinErr != nil {
+				err = pinErr
 				break
 			}
 		}

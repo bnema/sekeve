@@ -3,9 +3,9 @@
 package gui
 
 import (
+	"errors"
 	"image"
 	"image/color"
-	"os"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
@@ -32,11 +32,13 @@ var (
 	inputBgError  = color.NRGBA{R: 0x2A, G: 0x20, B: 0x20, A: 0xFF}
 )
 
+// ErrCancelled is returned when the user dismisses the PIN prompt.
+var ErrCancelled = errors.New("PIN prompt cancelled")
+
 // RunPINPrompt opens a Gio window for PIN entry.
-// Returns the entered PIN string, or empty string if cancelled.
-// errorMode enables red styling. message is optional text above the input.
+// Returns the entered PIN, or ErrCancelled if the user presses Escape or closes the window.
 func RunPINPrompt(errorMode bool, message string) (string, error) {
-	var pin string
+	result := make(chan string, 1)
 
 	go func() {
 		var w app.Window
@@ -57,6 +59,7 @@ func RunPINPrompt(errorMode bool, message string) (string, error) {
 		editor.SingleLine = true
 		editor.Submit = true
 		editor.Mask = '●'
+		editor.MaxLen = 32
 
 		focused := false
 
@@ -68,37 +71,30 @@ func RunPINPrompt(errorMode bool, message string) (string, error) {
 			case app.FrameEvent:
 				gtx := app.NewContext(&ops, e)
 
-				// Auto-focus editor on first frame.
 				if !focused {
 					gtx.Execute(key.FocusCmd{Tag: &editor})
 					focused = true
 				}
 
-				// Handle Escape key to cancel.
 				if _, ok := gtx.Event(key.Filter{Name: key.NameEscape}); ok {
 					w.Perform(system.ActionClose)
-					os.Exit(1)
 				}
 
-				// Process editor events (Submit on Enter).
 				for {
 					ev, ok := editor.Update(gtx)
 					if !ok {
 						break
 					}
 					if _, isSubmit := ev.(widget.SubmitEvent); isSubmit {
-						pin = editor.Text()
+						result <- editor.Text()
 						w.Perform(system.ActionClose)
 					}
 				}
 
-				// Draw background.
 				paint.FillShape(gtx.Ops, bgColor, clip.Rect{Max: gtx.Constraints.Max}.Op())
 
-				// Layout content.
 				layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-						// Optional message above input.
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							if message == "" {
 								return layout.Dimensions{}
@@ -109,11 +105,9 @@ func RunPINPrompt(errorMode bool, message string) (string, error) {
 								lbl.Color = msgErrorColor
 							}
 							dims := lbl.Layout(gtx)
-							// Add spacing below message.
 							dims.Size.Y += gtx.Dp(unit.Dp(8))
 							return dims
 						}),
-						// Bordered input field.
 						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 							return drawBorderedInput(gtx, th, &editor, errorMode)
 						}),
@@ -126,10 +120,15 @@ func RunPINPrompt(errorMode bool, message string) (string, error) {
 	}()
 
 	app.Main()
-	return pin, nil
+
+	select {
+	case pin := <-result:
+		return pin, nil
+	default:
+		return "", ErrCancelled
+	}
 }
 
-// drawBorderedInput draws a rounded border around the editor input field.
 func drawBorderedInput(gtx layout.Context, th *material.Theme, editor *widget.Editor, errorMode bool) layout.Dimensions {
 	borderColor := borderNormal
 	bgColor := inputBg
@@ -138,17 +137,13 @@ func drawBorderedInput(gtx layout.Context, th *material.Theme, editor *widget.Ed
 		bgColor = inputBgError
 	}
 
-	// Measure the inner content first to get desired height.
 	innerInset := layout.UniformInset(unit.Dp(8))
-
-	// Calculate dimensions with a fixed minimum height for the input box.
 	minHeight := gtx.Dp(unit.Dp(36))
 	gtx.Constraints.Min.Y = minHeight
 	if gtx.Constraints.Max.Y < minHeight {
 		gtx.Constraints.Max.Y = minHeight
 	}
 
-	// Draw border (outer rounded rect).
 	borderWidth := 1
 	totalWidth := gtx.Constraints.Max.X
 	totalHeight := minHeight
@@ -159,15 +154,10 @@ func drawBorderedInput(gtx layout.Context, th *material.Theme, editor *widget.Ed
 		Max: image.Pt(totalWidth-borderWidth, totalHeight-borderWidth),
 	}
 
-	// Paint border.
 	paint.FillShape(gtx.Ops, borderColor,
 		clip.RRect{Rect: outerRect, SE: 4, SW: 4, NE: 4, NW: 4}.Op(gtx.Ops))
-
-	// Paint inner background.
 	paint.FillShape(gtx.Ops, bgColor,
 		clip.RRect{Rect: innerRect, SE: 3, SW: 3, NE: 3, NW: 3}.Op(gtx.Ops))
-
-	// Clip to inner area and draw editor.
 	innerStack := clip.RRect{Rect: innerRect, SE: 3, SW: 3, NE: 3, NW: 3}.Push(gtx.Ops)
 	innerGtx := gtx
 	innerGtx.Constraints.Max.X = innerRect.Dx()
