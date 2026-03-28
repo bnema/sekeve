@@ -4,12 +4,14 @@ export GOEXPERIMENT := runtimesecret
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X github.com/bnema/sekeve/internal/version.Version=$(VERSION)
+# novulkan: skip Vulkan backend (requires vulkan-headers system package)
+GOTAGS := novulkan
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o bin/sekeve ./cmd/sekeve
+	go build -tags "$(GOTAGS)" -ldflags "$(LDFLAGS)" -o bin/sekeve ./cmd/sekeve
 
 install:
-	go install -ldflags "$(LDFLAGS)" ./cmd/sekeve
+	go install -tags "$(GOTAGS)" -ldflags "$(LDFLAGS)" ./cmd/sekeve
 
 proto:
 	cd proto && buf generate
