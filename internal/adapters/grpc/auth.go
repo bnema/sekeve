@@ -131,7 +131,10 @@ func (a *AuthManager) GPGFingerprint() string {
 // GenerateChallenge generates a cryptographically random 32-byte nonce, stores it with a 30s TTL,
 // and returns the hex-encoded nonce.
 func (a *AuthManager) GenerateChallenge(_ context.Context) (string, error) {
-	nonce := generateToken()
+	nonce, err := generateTokenSafe()
+	if err != nil {
+		return "", err
+	}
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -151,14 +154,16 @@ func (a *AuthManager) GenerateChallenge(_ context.Context) (string, error) {
 
 // FormatChallenge returns the canonical challenge string for a given nonce.
 func (a *AuthManager) FormatChallenge(nonce string) string {
-	return fmt.Sprintf("sekeve-challenge:%s:%d", nonce, time.Now().Unix())
+	return fmt.Sprintf("sekeve-challenge:%s", nonce)
 }
 
-// generateToken returns a cryptographically random 32-byte hex string.
-func generateToken() string {
+// generateTokenSafe returns a cryptographically random 32-byte hex string.
+func generateTokenSafe() (string, error) {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("crypto/rand failed: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // VerifyNonce verifies that a nonce exists and has not expired. When PIN is
@@ -187,7 +192,10 @@ func (a *AuthManager) VerifyNonce(_ context.Context, nonce string) (*VerifyResul
 			}
 		}
 
-		ticket := generateToken()
+		ticket, err := generateTokenSafe()
+		if err != nil {
+			return nil, fmt.Errorf("generate unlock ticket: %w", err)
+		}
 		a.unlockTickets[ticket] = nonceEntry{
 			expiresAt: time.Now().Add(nonceTTL),
 		}
@@ -201,7 +209,10 @@ func (a *AuthManager) VerifyNonce(_ context.Context, nonce string) (*VerifyResul
 		return nil, status.Error(codes.ResourceExhausted, "too many active sessions")
 	}
 
-	token := generateToken()
+	token, err := generateTokenSafe()
+	if err != nil {
+		return nil, fmt.Errorf("generate session token: %w", err)
+	}
 	expiresAt := time.Now().Add(sessionTTL)
 	a.sessions[token] = sessionEntry{expiresAt: expiresAt}
 	return &VerifyResult{
@@ -231,7 +242,10 @@ func (am *AuthManager) RedeemUnlockTicket(_ context.Context, ticket string) (str
 		return "", time.Time{}, fmt.Errorf("too many active sessions")
 	}
 
-	token := generateToken()
+	token, err := generateTokenSafe()
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("generate session token: %w", err)
+	}
 	expiresAt := time.Now().Add(sessionTTL)
 	am.sessions[token] = sessionEntry{expiresAt: expiresAt}
 	return token, expiresAt, nil
