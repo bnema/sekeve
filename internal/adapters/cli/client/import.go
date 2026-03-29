@@ -79,7 +79,7 @@ Use --file to import from an existing JSON export instead.`,
 	return cmd
 }
 
-func runImportBitwarden(cmd *cobra.Command, args []string) error {
+func runImportBitwarden(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
 	filePath, _ := cmd.Flags().GetString("file")

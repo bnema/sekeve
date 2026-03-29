@@ -23,14 +23,14 @@ func newPINSetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "set",
 		Short: "Set a new unlock PIN (4-6 digits)",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			cfg := cliconfig.ConfigFromCmd(cmd)
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
 			if err != nil {
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() { _ = clientApp.Close(ctx) }()
 
 			hasPIN, err := clientApp.Sync.HasPIN(ctx)
 			if err != nil {
@@ -69,14 +69,14 @@ func newPINChangeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "change",
 		Short: "Change the unlock PIN",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			cfg := cliconfig.ConfigFromCmd(cmd)
 			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
 			if err != nil {
 				return err
 			}
-			defer clientApp.Close(ctx)
+			defer func() { _ = clientApp.Close(ctx) }()
 
 			currentPIN, err := cliconfig.ReadPassword("Current PIN: ")
 			if err != nil {

@@ -211,7 +211,7 @@ func TestProcessImport_ProgressCallback(t *testing.T) {
 	}
 
 	var calls atomic.Int64
-	result, err := processImport(context.Background(), vault, export, false, func(done, total int) {
+	result, err := processImport(context.Background(), vault, export, false, func(_, total int) {
 		calls.Add(1)
 		if total != 2 {
 			t.Errorf("total = %d, want 2", total)

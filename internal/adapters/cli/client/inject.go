@@ -60,7 +60,7 @@ Examples:
 					return err
 				}
 				lines, err := parseDotenv(f)
-				f.Close()
+				_ = f.Close()
 				if err != nil {
 					_ = styles.RenderError(os.Stderr, fmt.Errorf("parse %s: %w", path, err))
 					return err

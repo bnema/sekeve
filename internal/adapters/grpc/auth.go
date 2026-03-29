@@ -148,7 +148,7 @@ func generateToken() string {
 // VerifyNonce verifies that a nonce exists and has not expired. When PIN is
 // configured it returns an unlock ticket instead of a session token. Without
 // PIN it returns a session token directly.
-func (a *AuthManager) VerifyNonce(ctx context.Context, nonce string) (*VerifyResult, error) {
+func (a *AuthManager) VerifyNonce(_ context.Context, nonce string) (*VerifyResult, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 

@@ -142,7 +142,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 
 		pin, pinErr := readPIN(false, "")
 		if pinErr != nil {
-			clientApp.Close(ctx)
+			_ = clientApp.Close(ctx)
 			return nil, fmt.Errorf("failed to read PIN: %w", pinErr)
 		}
 
@@ -184,7 +184,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		}
 
 		if err != nil {
-			clientApp.Close(ctx)
+			_ = clientApp.Close(ctx)
 			if !isTTY {
 				SendNotification(ctx, "PIN unlock failed")
 			}
