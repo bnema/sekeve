@@ -170,10 +170,11 @@ func (s *Server) Authenticate(ctx context.Context, req *sekevev1.AuthRequest) (*
 
 	// Verify the requested key ID resolves to the registered fingerprint.
 	expectedFP := s.auth.GPGFingerprint()
-	if expectedFP != "" {
-		if err := s.gpg.VerifyKeyIDMatchesFingerprint(ctx, req.GpgKeyId, expectedFP, pubKey); err != nil {
-			return nil, status.Errorf(codes.Unauthenticated, "%v", err)
-		}
+	if expectedFP == "" {
+		return nil, status.Errorf(codes.FailedPrecondition, "server GPG key not configured")
+	}
+	if err := s.gpg.VerifyKeyIDMatchesFingerprint(ctx, req.GpgKeyId, expectedFP, pubKey); err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "%v", err)
 	}
 
 	nonce, err := s.auth.GenerateChallenge(ctx)
