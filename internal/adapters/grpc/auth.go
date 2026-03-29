@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	nonceTTL   = 30 * time.Second
-	sessionTTL = time.Hour
+	nonceTTL    = 30 * time.Second
+	sessionTTL  = time.Hour
+	maxSessions = 20
 )
 
 type nonceEntry struct {
@@ -196,6 +197,10 @@ func (a *AuthManager) VerifyNonce(_ context.Context, nonce string) (*VerifyResul
 		}, nil
 	}
 
+	if len(a.sessions) >= maxSessions {
+		return nil, status.Error(codes.ResourceExhausted, "too many active sessions")
+	}
+
 	token := generateToken()
 	expiresAt := time.Now().Add(sessionTTL)
 	a.sessions[token] = sessionEntry{expiresAt: expiresAt}
@@ -220,6 +225,10 @@ func (am *AuthManager) RedeemUnlockTicket(_ context.Context, ticket string) (str
 
 	if time.Now().After(entry.expiresAt) {
 		return "", time.Time{}, fmt.Errorf("unlock ticket expired")
+	}
+
+	if len(am.sessions) >= maxSessions {
+		return "", time.Time{}, fmt.Errorf("too many active sessions")
 	}
 
 	token := generateToken()
@@ -284,4 +293,50 @@ func (a *AuthManager) UnaryInterceptor() grpc.UnaryServerInterceptor {
 
 		return handler(ctx, req)
 	}
+}
+
+// InvalidateAllSessions removes all active sessions, forcing re-authentication.
+func (a *AuthManager) InvalidateAllSessions() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	clear(a.sessions)
+}
+
+// SweepExpired removes all expired sessions, nonces, and unlock tickets.
+func (a *AuthManager) SweepExpired() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	now := time.Now()
+	for k, entry := range a.sessions {
+		if now.After(entry.expiresAt) {
+			delete(a.sessions, k)
+		}
+	}
+	for k, entry := range a.nonces {
+		if now.After(entry.expiresAt) {
+			delete(a.nonces, k)
+		}
+	}
+	for k, entry := range a.unlockTickets {
+		if now.After(entry.expiresAt) {
+			delete(a.unlockTickets, k)
+		}
+	}
+}
+
+// StartSweeper runs a background goroutine that periodically cleans expired entries.
+// It stops when the context is cancelled.
+func (a *AuthManager) StartSweeper(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				a.SweepExpired()
+			}
+		}
+	}()
 }

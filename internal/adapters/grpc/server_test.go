@@ -239,7 +239,7 @@ func TestSetPIN_FirstTime(t *testing.T) {
 }
 
 func TestSetPIN_ChangePIN(t *testing.T) {
-	client, cleanup := setupTestServer(t)
+	client, auth, cleanup := setupTestServerWithAuth(t)
 	defer cleanup()
 
 	ctx := authedCtx()
@@ -247,18 +247,24 @@ func TestSetPIN_ChangePIN(t *testing.T) {
 	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "1234"})
 	require.NoError(t, err)
 
+	// SetPIN invalidates all sessions; re-authenticate for the next call.
+	auth.SetTestToken("test-token")
+
 	// Change PIN — must supply correct current PIN.
 	_, err = client.SetPIN(ctx, &sekevev1.SetPINRequest{CurrentPin: "1234", NewPin: "5678"})
 	require.NoError(t, err)
 }
 
 func TestSetPIN_WrongCurrentPIN(t *testing.T) {
-	client, cleanup := setupTestServer(t)
+	client, auth, cleanup := setupTestServerWithAuth(t)
 	defer cleanup()
 
 	ctx := authedCtx()
 	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "1234"})
 	require.NoError(t, err)
+
+	// SetPIN invalidates all sessions; re-authenticate for the next call.
+	auth.SetTestToken("test-token")
 
 	_, err = client.SetPIN(ctx, &sekevev1.SetPINRequest{CurrentPin: "wrong", NewPin: "5678"})
 	require.Error(t, err)

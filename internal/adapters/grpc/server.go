@@ -79,6 +79,8 @@ func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager)
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	grpc_health_v1.RegisterHealthServer(s.grpcServer, healthSrv)
 
+	auth.StartSweeper(ctx)
+
 	return s
 }
 
@@ -322,6 +324,7 @@ func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*seke
 	}
 
 	s.auth.SetPINConfigured(true)
+	s.auth.InvalidateAllSessions()
 	return &sekevev1.SetPINResponse{}, nil
 }
 
