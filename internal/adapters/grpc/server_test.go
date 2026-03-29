@@ -372,3 +372,36 @@ func TestUnlock_NoPINConfigured(t *testing.T) {
 	st, _ := status.FromError(err)
 	assert.Equal(t, codes.FailedPrecondition, st.Code())
 }
+
+func TestUnlock_WrongPIN_ConsumesTicket(t *testing.T) {
+	client, auth, cleanup := setupTestServerWithAuth(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "5678"})
+	require.NoError(t, err)
+
+	nonce, err := auth.GenerateChallenge(context.Background())
+	require.NoError(t, err)
+	result, err := auth.VerifyNonce(context.Background(), nonce)
+	require.NoError(t, err)
+
+	// First attempt: wrong PIN — should fail and consume the ticket.
+	_, err = client.Unlock(context.Background(), &sekevev1.UnlockRequest{
+		UnlockTicket: result.UnlockTicket,
+		Pin:          "0000",
+	})
+	require.Error(t, err)
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.PermissionDenied, st.Code())
+
+	// Second attempt: correct PIN, same ticket — should fail (ticket consumed).
+	auth.ResetPINFailures() // clear rate limit for test clarity
+	_, err = client.Unlock(context.Background(), &sekevev1.UnlockRequest{
+		UnlockTicket: result.UnlockTicket,
+		Pin:          "5678",
+	})
+	require.Error(t, err)
+	st, _ = status.FromError(err)
+	assert.Equal(t, codes.Unauthenticated, st.Code())
+}

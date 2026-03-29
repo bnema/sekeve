@@ -329,25 +329,31 @@ func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*seke
 }
 
 // Unlock exchanges a one-time unlock ticket and PIN for a session token.
+// The ticket is consumed on first use regardless of PIN correctness.
 // This RPC is unauthenticated (listed in skipAuthMethods).
 func (s *Server) Unlock(ctx context.Context, req *sekevev1.UnlockRequest) (*sekevev1.UnlockResponse, error) {
 	if err := s.auth.CheckPINRateLimit(); err != nil {
 		return nil, status.Errorf(codes.ResourceExhausted, "%v", err)
 	}
 
-	// Verify PIN before consuming the ticket so the user can retry on wrong PIN.
-	hash, salt, err := s.storage.GetPINHash(ctx)
+	// Consume the ticket first — prevents unlimited PIN guessing per ticket.
+	token, expiresAt, err := s.auth.RedeemUnlockTicket(ctx, req.UnlockTicket)
 	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid unlock ticket: %v", err)
+	}
+
+	// Verify PIN after ticket consumption.
+	hash, salt, pinErr := s.storage.GetPINHash(ctx)
+	if pinErr != nil {
+		// No PIN configured but ticket was issued — revoke the session.
+		s.auth.RevokeSession(token)
 		return nil, status.Errorf(codes.FailedPrecondition, "no PIN configured")
 	}
 	if !adaptercrypto.VerifyPIN(req.Pin, hash, salt) {
 		s.auth.RecordPINFailure()
+		// Revoke the just-issued session since PIN was wrong.
+		s.auth.RevokeSession(token)
 		return nil, status.Errorf(codes.PermissionDenied, "incorrect PIN")
-	}
-
-	token, expiresAt, err := s.auth.RedeemUnlockTicket(ctx, req.UnlockTicket)
-	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid unlock ticket: %v", err)
 	}
 
 	s.auth.ResetPINFailures()

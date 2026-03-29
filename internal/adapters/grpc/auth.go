@@ -302,6 +302,13 @@ func (a *AuthManager) InvalidateAllSessions() {
 	clear(a.sessions)
 }
 
+// RevokeSession removes a specific session token.
+func (a *AuthManager) RevokeSession(token string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	delete(a.sessions, token)
+}
+
 // SweepExpired removes all expired sessions, nonces, and unlock tickets.
 func (a *AuthManager) SweepExpired() {
 	a.mu.Lock()
