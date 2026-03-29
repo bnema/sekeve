@@ -186,7 +186,7 @@ func (a *GPGAdapter) FingerprintFromArmored(ctx context.Context, armored []byte)
 		return "", fmt.Errorf("unexpected fingerprint length: %d", len(fp))
 	}
 	for _, c := range fp {
-		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'A' || c > 'F') && (c < 'a' || c > 'f') {
 			return "", fmt.Errorf("fingerprint contains non-hex character: %c", c)
 		}
 	}
