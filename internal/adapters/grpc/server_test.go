@@ -327,6 +327,25 @@ func TestUnlock_WrongPIN(t *testing.T) {
 	assert.Equal(t, codes.PermissionDenied, st.Code())
 }
 
+func TestCreateEntry_OversizedPayload(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	bigPayload := make([]byte, 2*1024*1024) // 2MB, over the 1MB limit
+	_, err := client.CreateEntry(ctx, &sekevev1.CreateEntryRequest{
+		Entry: &sekevev1.Entry{
+			Name:    "big",
+			Type:    sekevev1.EntryType_ENTRY_TYPE_NOTE,
+			Payload: bigPayload,
+		},
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.ResourceExhausted, st.Code())
+}
+
 func TestUnlock_NoPINConfigured(t *testing.T) {
 	client, auth, cleanup := setupTestServerWithAuth(t)
 	defer cleanup()

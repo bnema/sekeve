@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+	"time"
 	"unicode"
 
 	sekevev1 "github.com/bnema/sekeve/gen/proto/sekeve/v1"
@@ -19,6 +20,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
 
@@ -59,6 +61,16 @@ func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager)
 
 	s.grpcServer = grpc.NewServer(
 		grpc.UnaryInterceptor(auth.UnaryInterceptor()),
+		grpc.MaxRecvMsgSize(1<<20), // 1 MB
+		grpc.MaxSendMsgSize(4<<20), // 4 MB (list responses can be larger)
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: 5 * time.Minute,
+			MaxConnectionAge:  30 * time.Minute,
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             5 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	sekevev1.RegisterSekeveServer(s.grpcServer, s)
 
