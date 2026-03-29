@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+	"strings"
 	"unicode"
 
 	sekevev1 "github.com/bnema/sekeve/gen/proto/sekeve/v1"
@@ -43,6 +44,16 @@ func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager)
 	// Check if PIN is already configured so auth interceptor knows about it.
 	if _, _, err := storage.GetPINHash(ctx); err == nil {
 		auth.SetPINConfigured(true)
+	}
+
+	// Extract fingerprint from stored public key for authentication validation.
+	gpg := adaptercrypto.NewGPGAdapter()
+	fp, err := gpg.FingerprintFromArmored(ctx, auth.GPGPublicKey())
+	if err != nil {
+		log.Warn().Err(err).Msg("could not extract fingerprint from stored key")
+	} else {
+		auth.SetGPGFingerprint(fp)
+		log.Info().Str("fingerprint", fp).Msg("registered GPG key fingerprint")
 	}
 
 	s.grpcServer = grpc.NewServer(
@@ -127,6 +138,31 @@ func (s *Server) Authenticate(ctx context.Context, req *sekevev1.AuthRequest) (*
 	importCmd.Stderr = &importStderr
 	if err := importCmd.Run(); err != nil {
 		return nil, log.WrapErrf(err, "gpg import failed: %s", importStderr.String())
+	}
+
+	// Verify the requested key ID resolves to the registered fingerprint.
+	expectedFP := s.auth.GPGFingerprint()
+	if expectedFP != "" {
+		checkCmd := exec.CommandContext(ctx, "gpg",
+			"--batch", "--with-colons",
+			"--list-keys", req.GpgKeyId,
+		)
+		var checkOut bytes.Buffer
+		checkCmd.Stdout = &checkOut
+		if err := checkCmd.Run(); err != nil {
+			return nil, status.Errorf(codes.Unauthenticated, "unknown GPG key ID")
+		}
+		var matched bool
+		for line := range strings.SplitSeq(checkOut.String(), "\n") {
+			fields := strings.Split(line, ":")
+			if len(fields) >= 10 && fields[0] == "fpr" && fields[9] == expectedFP {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return nil, status.Errorf(codes.Unauthenticated, "GPG key ID does not match registered key")
+		}
 	}
 
 	nonce, err := s.auth.GenerateChallenge(ctx)

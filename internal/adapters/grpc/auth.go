@@ -48,6 +48,7 @@ type AuthManager struct {
 	sessions       map[string]sessionEntry
 	unlockTickets  map[string]nonceEntry
 	gpgPubKey      []byte
+	gpgFingerprint string
 	pinConfigured  bool
 	pinFailures    int
 	pinLockedUntil time.Time
@@ -110,6 +111,20 @@ func (am *AuthManager) SetPINConfigured(configured bool) {
 // GPGPublicKey returns the stored GPG public key.
 func (a *AuthManager) GPGPublicKey() []byte {
 	return a.gpgPubKey
+}
+
+// SetGPGFingerprint stores the fingerprint of the registered GPG public key.
+func (a *AuthManager) SetGPGFingerprint(fp string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.gpgFingerprint = fp
+}
+
+// GPGFingerprint returns the fingerprint of the registered GPG public key.
+func (a *AuthManager) GPGFingerprint() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.gpgFingerprint
 }
 
 // GenerateChallenge generates a cryptographically random 32-byte nonce, stores it with a 30s TTL,

@@ -85,3 +85,29 @@ func TestGPGAdapter_DecryptInvalidData(t *testing.T) {
 	err := adapter.DecryptAndUse(context.Background(), []byte("not-encrypted"), func(_ []byte) {})
 	assert.Error(t, err)
 }
+
+func TestFingerprintFromArmored_ValidKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	genCmd := exec.Command("gpg", "--batch", "--homedir", tmpDir,
+		"--passphrase", "", "--quick-gen-key", "test@sekeve.test", "default", "default", "0")
+	genCmd.Stderr = nil
+	require.NoError(t, genCmd.Run())
+
+	exportCmd := exec.Command("gpg", "--batch", "--homedir", tmpDir,
+		"--export", "--armor", "test@sekeve.test")
+	armored, err := exportCmd.Output()
+	require.NoError(t, err)
+	require.NotEmpty(t, armored)
+
+	gpg := crypto.NewGPGAdapter()
+	fp, err := gpg.FingerprintFromArmored(context.Background(), armored)
+	require.NoError(t, err)
+	assert.Len(t, fp, 40, "fingerprint should be 40 hex chars")
+	assert.Regexp(t, `^[0-9A-F]{40}$`, fp)
+}
+
+func TestFingerprintFromArmored_InvalidKey(t *testing.T) {
+	gpg := crypto.NewGPGAdapter()
+	_, err := gpg.FingerprintFromArmored(context.Background(), []byte("not a key"))
+	require.Error(t, err)
+}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime/secret"
+	"strings"
 
 	"github.com/bnema/zerowrap"
 )
@@ -143,4 +144,43 @@ func (a *GPGAdapter) ValidateArmoredPublicKey(ctx context.Context, armored []byt
 	// Normalize: trim whitespace, ensure trailing newline.
 	trimmed = append(trimmed, '\n')
 	return trimmed, nil
+}
+
+// FingerprintFromArmored extracts the primary key fingerprint from an armored
+// GPG public key. Uses a temporary GNUPGHOME to avoid polluting any keyring.
+// Returns the uppercase 40-char hex fingerprint.
+func (a *GPGAdapter) FingerprintFromArmored(ctx context.Context, armored []byte) (string, error) {
+	tmpDir, err := os.MkdirTemp("", "sekeve-gpg-fp-*")
+	if err != nil {
+		return "", fmt.Errorf("create temp dir: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	cmd := exec.CommandContext(ctx, "gpg",
+		"--batch", "--quiet",
+		"--homedir", tmpDir,
+		"--no-autostart",
+		"--with-colons",
+		"--import-options", "show-only",
+		"--import",
+	)
+	cmd.Stdin = bytes.NewReader(armored)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("gpg fingerprint extraction failed: %s", stderr.String())
+	}
+
+	// Parse colon-delimited output for "fpr" record.
+	for line := range strings.SplitSeq(stdout.String(), "\n") {
+		fields := strings.Split(line, ":")
+		if len(fields) >= 10 && fields[0] == "fpr" {
+			return fields[9], nil
+		}
+	}
+
+	return "", fmt.Errorf("no fingerprint found in key")
 }
