@@ -283,6 +283,17 @@ func TestSetPIN_TooShort(t *testing.T) {
 	assert.Equal(t, codes.InvalidArgument, st.Code())
 }
 
+func TestSetPIN_NonDigitRejected(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "abcd"})
+	require.Error(t, err)
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
 // --- Unlock tests ---
 
 func TestUnlock_ValidTicketAndPIN(t *testing.T) {

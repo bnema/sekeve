@@ -135,6 +135,19 @@ func validateKeyID(keyID string) error {
 	return nil
 }
 
+// validatePIN checks that a PIN is 4-6 ASCII digits.
+func validatePIN(pin string) error {
+	if len(pin) < 4 || len(pin) > 6 {
+		return fmt.Errorf("PIN must be 4-6 digits")
+	}
+	for _, r := range pin {
+		if r < '0' || r > '9' {
+			return fmt.Errorf("PIN must contain only digits")
+		}
+	}
+	return nil
+}
+
 // Authenticate imports the stored GPG public key, generates a challenge nonce,
 // encrypts the challenge with the client's key and returns the ciphertext.
 func (s *Server) Authenticate(ctx context.Context, req *sekevev1.AuthRequest) (*sekevev1.AuthChallenge, error) {
@@ -298,8 +311,8 @@ func (s *Server) HasPIN(ctx context.Context, _ *sekevev1.HasPINRequest) (*sekeve
 // SetPIN stores (or changes) the server PIN. Requires a valid session token.
 // When a PIN already exists the request must include the correct current PIN.
 func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*sekevev1.SetPINResponse, error) {
-	if len(req.NewPin) < 4 || len(req.NewPin) > 6 {
-		return nil, status.Errorf(codes.InvalidArgument, "PIN must be 4-6 digits")
+	if err := validatePIN(req.NewPin); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	existingHash, existingSalt, err := s.storage.GetPINHash(ctx)
