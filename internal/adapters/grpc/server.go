@@ -183,23 +183,13 @@ func (s *Server) Authenticate(ctx context.Context, req *sekevev1.AuthRequest) (*
 
 	challenge := s.auth.FormatChallenge(nonce)
 
-	// Encrypt the challenge string with the recipient key.
-	encCmd := exec.CommandContext(ctx, "gpg",
-		"--batch", "--yes",
-		"--trust-model", "always",
-		"--recipient", req.GpgKeyId,
-		"--encrypt",
-	)
-	encCmd.Stdin = bytes.NewBufferString(challenge)
-	var stdout, stderr bytes.Buffer
-	encCmd.Stdout = &stdout
-	encCmd.Stderr = &stderr
-	if err := encCmd.Run(); err != nil {
-		return nil, log.WrapErrf(err, "gpg encrypt failed: %s", stderr.String())
+	ciphertext, err := s.gpg.Encrypt(ctx, []byte(challenge), req.GpgKeyId)
+	if err != nil {
+		return nil, err
 	}
 
 	return &sekevev1.AuthChallenge{
-		EncryptedChallenge: stdout.Bytes(),
+		EncryptedChallenge: ciphertext,
 	}, nil
 }
 

@@ -205,6 +205,15 @@ func (a *AuthManager) VerifyNonce(_ context.Context, nonce string) (*VerifyResul
 		}, nil
 	}
 
+	// Sweep expired sessions before checking the cap to avoid rejecting
+	// legitimate requests when dead sessions haven't been cleaned yet.
+	now := time.Now()
+	for k, s := range a.sessions {
+		if now.After(s.expiresAt) {
+			delete(a.sessions, k)
+		}
+	}
+
 	if len(a.sessions) >= maxSessions {
 		return nil, status.Error(codes.ResourceExhausted, "too many active sessions")
 	}
@@ -213,7 +222,7 @@ func (a *AuthManager) VerifyNonce(_ context.Context, nonce string) (*VerifyResul
 	if err != nil {
 		return nil, fmt.Errorf("generate session token: %w", err)
 	}
-	expiresAt := time.Now().Add(sessionTTL)
+	expiresAt := now.Add(sessionTTL)
 	a.sessions[token] = sessionEntry{expiresAt: expiresAt}
 	return &VerifyResult{
 		Token:     token,
@@ -234,8 +243,16 @@ func (am *AuthManager) RedeemUnlockTicket(_ context.Context, ticket string) (str
 	// Always consume the ticket before checking expiry to prevent replay.
 	delete(am.unlockTickets, ticket)
 
-	if time.Now().After(entry.expiresAt) {
+	now := time.Now()
+	if now.After(entry.expiresAt) {
 		return "", time.Time{}, fmt.Errorf("unlock ticket expired")
+	}
+
+	// Sweep expired sessions before checking the cap.
+	for k, s := range am.sessions {
+		if now.After(s.expiresAt) {
+			delete(am.sessions, k)
+		}
 	}
 
 	if len(am.sessions) >= maxSessions {
@@ -246,7 +263,7 @@ func (am *AuthManager) RedeemUnlockTicket(_ context.Context, ticket string) (str
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("generate session token: %w", err)
 	}
-	expiresAt := time.Now().Add(sessionTTL)
+	expiresAt := now.Add(sessionTTL)
 	am.sessions[token] = sessionEntry{expiresAt: expiresAt}
 	return token, expiresAt, nil
 }

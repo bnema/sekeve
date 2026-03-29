@@ -94,63 +94,10 @@ func (a *GPGAdapter) ExportPublicKey(ctx context.Context, keyID string) ([]byte,
 	return stdout.Bytes(), nil
 }
 
-// ValidateArmoredPublicKey validates that the provided bytes are a valid
-// armored GPG public key. It uses a temporary GNUPGHOME to avoid polluting
-// any keyring. Returns the normalized (trimmed + trailing newline) key bytes.
-func (a *GPGAdapter) ValidateArmoredPublicKey(ctx context.Context, armored []byte) ([]byte, error) {
-	log := zerowrap.FromCtx(ctx)
-
-	trimmed := bytes.TrimSpace(armored)
-	if len(trimmed) == 0 {
-		return nil, fmt.Errorf("public key is empty")
-	}
-
-	// Quick pre-check for PGP armor markers.
-	if !bytes.Contains(trimmed, []byte("-----BEGIN PGP PUBLIC KEY BLOCK-----")) ||
-		!bytes.Contains(trimmed, []byte("-----END PGP PUBLIC KEY BLOCK-----")) {
-		return nil, fmt.Errorf("input does not look like an armored GPG public key")
-	}
-
-	// Validate using GPG in an isolated temp homedir.
-	tmpDir, err := os.MkdirTemp("", "sekeve-gpg-validate-*")
-	if err != nil {
-		return nil, log.WrapErr(err, "failed to create temp dir for key validation")
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	cmd := exec.CommandContext(ctx, "gpg",
-		"--batch", "--quiet",
-		"--homedir", tmpDir,
-		"--no-autostart",
-		"--with-colons",
-		"--import-options", "show-only",
-		"--import",
-	)
-	cmd.Stdin = bytes.NewReader(trimmed)
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, log.WrapErrf(err, "gpg key validation failed: %s", stderr.String())
-	}
-
-	// Verify at least one public key record exists in the output.
-	if !bytes.Contains(stdout.Bytes(), []byte("pub:")) {
-		return nil, fmt.Errorf("no public key found in the provided input")
-	}
-
-	// Normalize: trim whitespace, ensure trailing newline.
-	trimmed = append(trimmed, '\n')
-	return trimmed, nil
-}
-
-// FingerprintFromArmored extracts the primary key fingerprint from an armored
-// GPG public key. Uses a temporary GNUPGHOME to avoid polluting any keyring.
-// Returns the uppercase 40-char hex fingerprint.
-func (a *GPGAdapter) FingerprintFromArmored(ctx context.Context, armored []byte) (string, error) {
-	tmpDir, err := os.MkdirTemp("", "sekeve-gpg-fp-*")
+// showOnlyImport runs gpg --import-options show-only in an isolated temp
+// GNUPGHOME and returns the colon-delimited output.
+func showOnlyImport(ctx context.Context, armored []byte) (string, error) {
+	tmpDir, err := os.MkdirTemp("", "sekeve-gpg-*")
 	if err != nil {
 		return "", fmt.Errorf("create temp dir: %w", err)
 	}
@@ -171,27 +118,79 @@ func (a *GPGAdapter) FingerprintFromArmored(ctx context.Context, armored []byte)
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("gpg fingerprint extraction failed: %s", stderr.String())
+		return "", fmt.Errorf("gpg show-only import failed: %s", stderr.String())
 	}
 
-	// Parse colon-delimited output for "fpr" record.
-	for line := range strings.SplitSeq(stdout.String(), "\n") {
+	return stdout.String(), nil
+}
+
+// parseFingerprints extracts all fingerprints from gpg colon-delimited output.
+func parseFingerprints(colonOutput string) []string {
+	var fps []string
+	for line := range strings.SplitSeq(colonOutput, "\n") {
 		fields := strings.Split(line, ":")
 		if len(fields) >= 10 && fields[0] == "fpr" {
-			fp := fields[9]
-			if len(fp) != 40 {
-				return "", fmt.Errorf("unexpected fingerprint length: %d", len(fp))
-			}
-			for _, c := range fp {
-				if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
-					return "", fmt.Errorf("fingerprint contains non-hex character: %c", c)
-				}
-			}
-			return strings.ToUpper(fp), nil
+			fps = append(fps, fields[9])
 		}
 	}
+	return fps
+}
 
-	return "", fmt.Errorf("no fingerprint found in key")
+// ValidateArmoredPublicKey validates that the provided bytes are a valid
+// armored GPG public key. It uses a temporary GNUPGHOME to avoid polluting
+// any keyring. Returns the normalized (trimmed + trailing newline) key bytes.
+func (a *GPGAdapter) ValidateArmoredPublicKey(ctx context.Context, armored []byte) ([]byte, error) {
+	log := zerowrap.FromCtx(ctx)
+
+	trimmed := bytes.TrimSpace(armored)
+	if len(trimmed) == 0 {
+		return nil, fmt.Errorf("public key is empty")
+	}
+
+	// Quick pre-check for PGP armor markers.
+	if !bytes.Contains(trimmed, []byte("-----BEGIN PGP PUBLIC KEY BLOCK-----")) ||
+		!bytes.Contains(trimmed, []byte("-----END PGP PUBLIC KEY BLOCK-----")) {
+		return nil, fmt.Errorf("input does not look like an armored GPG public key")
+	}
+
+	output, err := showOnlyImport(ctx, trimmed)
+	if err != nil {
+		return nil, log.WrapErr(err, "gpg key validation failed")
+	}
+
+	if !strings.Contains(output, "pub:") {
+		return nil, fmt.Errorf("no public key found in the provided input")
+	}
+
+	// Normalize: trim whitespace, ensure trailing newline.
+	trimmed = append(trimmed, '\n')
+	return trimmed, nil
+}
+
+// FingerprintFromArmored extracts the primary key fingerprint from an armored
+// GPG public key. Uses a temporary GNUPGHOME to avoid polluting any keyring.
+// Returns the uppercase 40-char hex fingerprint.
+func (a *GPGAdapter) FingerprintFromArmored(ctx context.Context, armored []byte) (string, error) {
+	output, err := showOnlyImport(ctx, armored)
+	if err != nil {
+		return "", err
+	}
+
+	fps := parseFingerprints(output)
+	if len(fps) == 0 {
+		return "", fmt.Errorf("no fingerprint found in key")
+	}
+
+	fp := fps[0]
+	if len(fp) != 40 {
+		return "", fmt.Errorf("unexpected fingerprint length: %d", len(fp))
+	}
+	for _, c := range fp {
+		if !((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')) {
+			return "", fmt.Errorf("fingerprint contains non-hex character: %c", c)
+		}
+	}
+	return strings.ToUpper(fp), nil
 }
 
 // VerifyKeyIDMatchesFingerprint checks that a GPG key ID resolves to the
@@ -234,10 +233,8 @@ func (a *GPGAdapter) VerifyKeyIDMatchesFingerprint(ctx context.Context, keyID, e
 		return fmt.Errorf("unknown GPG key ID: %s", listErr.String())
 	}
 
-	// Check if any fingerprint record matches the expected one.
-	for line := range strings.SplitSeq(listOut.String(), "\n") {
-		fields := strings.Split(line, ":")
-		if len(fields) >= 10 && fields[0] == "fpr" && strings.EqualFold(fields[9], expectedFP) {
+	for _, fp := range parseFingerprints(listOut.String()) {
+		if strings.EqualFold(fp, expectedFP) {
 			return nil
 		}
 	}
