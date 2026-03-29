@@ -239,7 +239,7 @@ func TestSetPIN_FirstTime(t *testing.T) {
 }
 
 func TestSetPIN_ChangePIN(t *testing.T) {
-	client, cleanup := setupTestServer(t)
+	client, auth, cleanup := setupTestServerWithAuth(t)
 	defer cleanup()
 
 	ctx := authedCtx()
@@ -247,18 +247,24 @@ func TestSetPIN_ChangePIN(t *testing.T) {
 	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "1234"})
 	require.NoError(t, err)
 
+	// SetPIN invalidates all sessions; re-authenticate for the next call.
+	auth.SetTestToken("test-token")
+
 	// Change PIN — must supply correct current PIN.
 	_, err = client.SetPIN(ctx, &sekevev1.SetPINRequest{CurrentPin: "1234", NewPin: "5678"})
 	require.NoError(t, err)
 }
 
 func TestSetPIN_WrongCurrentPIN(t *testing.T) {
-	client, cleanup := setupTestServer(t)
+	client, auth, cleanup := setupTestServerWithAuth(t)
 	defer cleanup()
 
 	ctx := authedCtx()
 	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "1234"})
 	require.NoError(t, err)
+
+	// SetPIN invalidates all sessions; re-authenticate for the next call.
+	auth.SetTestToken("test-token")
 
 	_, err = client.SetPIN(ctx, &sekevev1.SetPINRequest{CurrentPin: "wrong", NewPin: "5678"})
 	require.Error(t, err)
@@ -272,6 +278,17 @@ func TestSetPIN_TooShort(t *testing.T) {
 
 	ctx := authedCtx()
 	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "12"})
+	require.Error(t, err)
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+func TestSetPIN_NonDigitRejected(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "abcd"})
 	require.Error(t, err)
 	st, _ := status.FromError(err)
 	assert.Equal(t, codes.InvalidArgument, st.Code())
@@ -327,6 +344,25 @@ func TestUnlock_WrongPIN(t *testing.T) {
 	assert.Equal(t, codes.PermissionDenied, st.Code())
 }
 
+func TestCreateEntry_OversizedPayload(t *testing.T) {
+	client, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	bigPayload := make([]byte, 2*1024*1024) // 2MB, over the 1MB limit
+	_, err := client.CreateEntry(ctx, &sekevev1.CreateEntryRequest{
+		Entry: &sekevev1.Entry{
+			Name:    "big",
+			Type:    sekevev1.EntryType_ENTRY_TYPE_NOTE,
+			Payload: bigPayload,
+		},
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.ResourceExhausted, st.Code())
+}
+
 func TestUnlock_NoPINConfigured(t *testing.T) {
 	client, auth, cleanup := setupTestServerWithAuth(t)
 	defer cleanup()
@@ -346,4 +382,37 @@ func TestUnlock_NoPINConfigured(t *testing.T) {
 	require.Error(t, err)
 	st, _ := status.FromError(err)
 	assert.Equal(t, codes.FailedPrecondition, st.Code())
+}
+
+func TestUnlock_WrongPIN_ConsumesTicket(t *testing.T) {
+	client, auth, cleanup := setupTestServerWithAuth(t)
+	defer cleanup()
+
+	ctx := authedCtx()
+	_, err := client.SetPIN(ctx, &sekevev1.SetPINRequest{NewPin: "5678"})
+	require.NoError(t, err)
+
+	nonce, err := auth.GenerateChallenge(context.Background())
+	require.NoError(t, err)
+	result, err := auth.VerifyNonce(context.Background(), nonce)
+	require.NoError(t, err)
+
+	// First attempt: wrong PIN — should fail and consume the ticket.
+	_, err = client.Unlock(context.Background(), &sekevev1.UnlockRequest{
+		UnlockTicket: result.UnlockTicket,
+		Pin:          "0000",
+	})
+	require.Error(t, err)
+	st, _ := status.FromError(err)
+	assert.Equal(t, codes.PermissionDenied, st.Code())
+
+	// Second attempt: correct PIN, same ticket — should fail (ticket consumed).
+	auth.ResetPINFailures() // clear rate limit for test clarity
+	_, err = client.Unlock(context.Background(), &sekevev1.UnlockRequest{
+		UnlockTicket: result.UnlockTicket,
+		Pin:          "5678",
+	})
+	require.Error(t, err)
+	st, _ = status.FromError(err)
+	assert.Equal(t, codes.Unauthenticated, st.Code())
 }

@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	nonceTTL   = 30 * time.Second
-	sessionTTL = time.Hour
+	nonceTTL    = 30 * time.Second
+	sessionTTL  = time.Hour
+	maxSessions = 20
 )
 
 type nonceEntry struct {
@@ -48,6 +49,7 @@ type AuthManager struct {
 	sessions       map[string]sessionEntry
 	unlockTickets  map[string]nonceEntry
 	gpgPubKey      []byte
+	gpgFingerprint string
 	pinConfigured  bool
 	pinFailures    int
 	pinLockedUntil time.Time
@@ -112,10 +114,27 @@ func (a *AuthManager) GPGPublicKey() []byte {
 	return a.gpgPubKey
 }
 
+// SetGPGFingerprint stores the fingerprint of the registered GPG public key.
+func (a *AuthManager) SetGPGFingerprint(fp string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.gpgFingerprint = fp
+}
+
+// GPGFingerprint returns the fingerprint of the registered GPG public key.
+func (a *AuthManager) GPGFingerprint() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.gpgFingerprint
+}
+
 // GenerateChallenge generates a cryptographically random 32-byte nonce, stores it with a 30s TTL,
 // and returns the hex-encoded nonce.
 func (a *AuthManager) GenerateChallenge(_ context.Context) (string, error) {
-	nonce := generateToken()
+	nonce, err := generateTokenSafe()
+	if err != nil {
+		return "", err
+	}
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -135,14 +154,16 @@ func (a *AuthManager) GenerateChallenge(_ context.Context) (string, error) {
 
 // FormatChallenge returns the canonical challenge string for a given nonce.
 func (a *AuthManager) FormatChallenge(nonce string) string {
-	return fmt.Sprintf("sekeve-challenge:%s:%d", nonce, time.Now().Unix())
+	return fmt.Sprintf("sekeve-challenge:%s", nonce)
 }
 
-// generateToken returns a cryptographically random 32-byte hex string.
-func generateToken() string {
+// generateTokenSafe returns a cryptographically random 32-byte hex string.
+func generateTokenSafe() (string, error) {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("crypto/rand failed: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // VerifyNonce verifies that a nonce exists and has not expired. When PIN is
@@ -171,7 +192,10 @@ func (a *AuthManager) VerifyNonce(_ context.Context, nonce string) (*VerifyResul
 			}
 		}
 
-		ticket := generateToken()
+		ticket, err := generateTokenSafe()
+		if err != nil {
+			return nil, fmt.Errorf("generate unlock ticket: %w", err)
+		}
 		a.unlockTickets[ticket] = nonceEntry{
 			expiresAt: time.Now().Add(nonceTTL),
 		}
@@ -181,8 +205,24 @@ func (a *AuthManager) VerifyNonce(_ context.Context, nonce string) (*VerifyResul
 		}, nil
 	}
 
-	token := generateToken()
-	expiresAt := time.Now().Add(sessionTTL)
+	// Sweep expired sessions before checking the cap to avoid rejecting
+	// legitimate requests when dead sessions haven't been cleaned yet.
+	now := time.Now()
+	for k, s := range a.sessions {
+		if now.After(s.expiresAt) {
+			delete(a.sessions, k)
+		}
+	}
+
+	if len(a.sessions) >= maxSessions {
+		return nil, status.Error(codes.ResourceExhausted, "too many active sessions")
+	}
+
+	token, err := generateTokenSafe()
+	if err != nil {
+		return nil, fmt.Errorf("generate session token: %w", err)
+	}
+	expiresAt := now.Add(sessionTTL)
 	a.sessions[token] = sessionEntry{expiresAt: expiresAt}
 	return &VerifyResult{
 		Token:     token,
@@ -203,12 +243,27 @@ func (am *AuthManager) RedeemUnlockTicket(_ context.Context, ticket string) (str
 	// Always consume the ticket before checking expiry to prevent replay.
 	delete(am.unlockTickets, ticket)
 
-	if time.Now().After(entry.expiresAt) {
+	now := time.Now()
+	if now.After(entry.expiresAt) {
 		return "", time.Time{}, fmt.Errorf("unlock ticket expired")
 	}
 
-	token := generateToken()
-	expiresAt := time.Now().Add(sessionTTL)
+	// Sweep expired sessions before checking the cap.
+	for k, s := range am.sessions {
+		if now.After(s.expiresAt) {
+			delete(am.sessions, k)
+		}
+	}
+
+	if len(am.sessions) >= maxSessions {
+		return "", time.Time{}, fmt.Errorf("too many active sessions")
+	}
+
+	token, err := generateTokenSafe()
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("generate session token: %w", err)
+	}
+	expiresAt := now.Add(sessionTTL)
 	am.sessions[token] = sessionEntry{expiresAt: expiresAt}
 	return token, expiresAt, nil
 }
@@ -269,4 +324,57 @@ func (a *AuthManager) UnaryInterceptor() grpc.UnaryServerInterceptor {
 
 		return handler(ctx, req)
 	}
+}
+
+// InvalidateAllSessions removes all active sessions, forcing re-authentication.
+func (a *AuthManager) InvalidateAllSessions() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	clear(a.sessions)
+}
+
+// RevokeSession removes a specific session token.
+func (a *AuthManager) RevokeSession(token string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	delete(a.sessions, token)
+}
+
+// SweepExpired removes all expired sessions, nonces, and unlock tickets.
+func (a *AuthManager) SweepExpired() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	now := time.Now()
+	for k, entry := range a.sessions {
+		if now.After(entry.expiresAt) {
+			delete(a.sessions, k)
+		}
+	}
+	for k, entry := range a.nonces {
+		if now.After(entry.expiresAt) {
+			delete(a.nonces, k)
+		}
+	}
+	for k, entry := range a.unlockTickets {
+		if now.After(entry.expiresAt) {
+			delete(a.unlockTickets, k)
+		}
+	}
+}
+
+// StartSweeper runs a background goroutine that periodically cleans expired entries.
+// It stops when the context is cancelled.
+func (a *AuthManager) StartSweeper(ctx context.Context) {
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				a.SweepExpired()
+			}
+		}
+	}()
 }

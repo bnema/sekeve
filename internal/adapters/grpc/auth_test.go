@@ -2,7 +2,12 @@ package grpc
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestVerifyNonce_WithPIN_ReturnsUnlockTicket(t *testing.T) {
@@ -138,4 +143,61 @@ func TestPINRateLimit_ExponentialBackoff(t *testing.T) {
 	if !d2.After(d1) {
 		t.Error("expected increasing lockout duration")
 	}
+}
+
+func TestSessionCap_RejectsWhenFull(t *testing.T) {
+	am := NewAuthManager(nil)
+	am.SetPINConfigured(false)
+
+	// Fill to capacity.
+	for range maxSessions {
+		nonce, err := am.GenerateChallenge(context.Background())
+		require.NoError(t, err)
+		result, err := am.VerifyNonce(context.Background(), nonce)
+		require.NoError(t, err)
+		require.NotEmpty(t, result.Token)
+	}
+
+	// Next session should fail.
+	nonce, err := am.GenerateChallenge(context.Background())
+	require.NoError(t, err)
+	_, err = am.VerifyNonce(context.Background(), nonce)
+	require.Error(t, err, "should reject when at session cap")
+}
+
+func TestInvalidateAllSessions(t *testing.T) {
+	am := NewAuthManager(nil)
+	am.SetPINConfigured(false)
+
+	// Create a session.
+	nonce, _ := am.GenerateChallenge(context.Background())
+	result, _ := am.VerifyNonce(context.Background(), nonce)
+	require.True(t, am.validateToken(result.Token))
+
+	// Invalidate.
+	am.InvalidateAllSessions()
+
+	require.False(t, am.validateToken(result.Token))
+}
+
+func TestGenerateToken_NotEmpty(t *testing.T) {
+	token, err := generateTokenSafe()
+	require.NoError(t, err)
+	assert.Len(t, token, 64, "32 bytes = 64 hex chars")
+	assert.NotEqual(t, strings.Repeat("0", 64), token)
+}
+
+func TestSweepExpiredSessions(t *testing.T) {
+	am := NewAuthManager(nil)
+
+	// Manually insert an expired session.
+	am.mu.Lock()
+	am.sessions["expired-token"] = sessionEntry{expiresAt: time.Now().Add(-time.Hour)}
+	am.sessions["valid-token"] = sessionEntry{expiresAt: time.Now().Add(time.Hour)}
+	am.mu.Unlock()
+
+	am.SweepExpired()
+
+	require.False(t, am.validateToken("expired-token"))
+	require.True(t, am.validateToken("valid-token"))
 }

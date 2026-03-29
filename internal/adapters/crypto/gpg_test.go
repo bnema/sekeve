@@ -85,3 +85,74 @@ func TestGPGAdapter_DecryptInvalidData(t *testing.T) {
 	err := adapter.DecryptAndUse(context.Background(), []byte("not-encrypted"), func(_ []byte) {})
 	assert.Error(t, err)
 }
+
+func TestFingerprintFromArmored_ValidKey(t *testing.T) {
+	tmpDir := t.TempDir()
+	genCmd := exec.Command("gpg", "--batch", "--homedir", tmpDir,
+		"--passphrase", "", "--quick-gen-key", "test@sekeve.test", "default", "default", "0")
+	genCmd.Stderr = nil
+	require.NoError(t, genCmd.Run())
+
+	exportCmd := exec.Command("gpg", "--batch", "--homedir", tmpDir,
+		"--export", "--armor", "test@sekeve.test")
+	armored, err := exportCmd.Output()
+	require.NoError(t, err)
+	require.NotEmpty(t, armored)
+
+	gpg := crypto.NewGPGAdapter()
+	fp, err := gpg.FingerprintFromArmored(context.Background(), armored)
+	require.NoError(t, err)
+	assert.Len(t, fp, 40, "fingerprint should be 40 hex chars")
+	assert.Regexp(t, `^[0-9A-F]{40}$`, fp)
+}
+
+func TestFingerprintFromArmored_InvalidKey(t *testing.T) {
+	gpg := crypto.NewGPGAdapter()
+	_, err := gpg.FingerprintFromArmored(context.Background(), []byte("not a key"))
+	require.Error(t, err)
+}
+
+func TestVerifyKeyIDMatchesFingerprint(t *testing.T) {
+	// Generate a test key in an isolated homedir.
+	tmpDir := t.TempDir()
+	genCmd := exec.Command("gpg", "--batch", "--homedir", tmpDir,
+		"--passphrase", "", "--quick-gen-key", "verify@sekeve.test", "default", "default", "0")
+	genCmd.Stderr = nil
+	require.NoError(t, genCmd.Run())
+
+	// Export the public key.
+	exportCmd := exec.Command("gpg", "--batch", "--homedir", tmpDir,
+		"--export", "--armor", "verify@sekeve.test")
+	armored, err := exportCmd.Output()
+	require.NoError(t, err)
+	require.NotEmpty(t, armored)
+
+	// Get the real fingerprint.
+	gpg := crypto.NewGPGAdapter()
+	fp, err := gpg.FingerprintFromArmored(context.Background(), armored)
+	require.NoError(t, err)
+
+	ctx := context.Background()
+
+	t.Run("matching key ID by email", func(t *testing.T) {
+		err := gpg.VerifyKeyIDMatchesFingerprint(ctx, "verify@sekeve.test", fp, armored)
+		assert.NoError(t, err)
+	})
+
+	t.Run("matching key ID by fingerprint", func(t *testing.T) {
+		err := gpg.VerifyKeyIDMatchesFingerprint(ctx, fp, fp, armored)
+		assert.NoError(t, err)
+	})
+
+	t.Run("wrong fingerprint", func(t *testing.T) {
+		wrongFP := "0000000000000000000000000000000000000000"
+		err := gpg.VerifyKeyIDMatchesFingerprint(ctx, "verify@sekeve.test", wrongFP, armored)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "does not match")
+	})
+
+	t.Run("unknown key ID", func(t *testing.T) {
+		err := gpg.VerifyKeyIDMatchesFingerprint(ctx, "nobody@nowhere.test", fp, armored)
+		assert.Error(t, err)
+	})
+}

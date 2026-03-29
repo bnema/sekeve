@@ -65,8 +65,8 @@ func (c *Client) Authenticate(ctx context.Context, gpgKeyID string, crypto port.
 
 	var nonce string
 	err = crypto.DecryptAndUse(ctx, challenge.EncryptedChallenge, func(plaintext []byte) {
-		parts := strings.SplitN(string(plaintext), ":", 3)
-		if len(parts) != 3 || parts[0] != "sekeve-challenge" {
+		parts := strings.SplitN(string(plaintext), ":", 2)
+		if len(parts) != 2 || parts[0] != "sekeve-challenge" {
 			return
 		}
 		nonce = parts[1]

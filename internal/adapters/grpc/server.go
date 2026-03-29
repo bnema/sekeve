@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+	"time"
 	"unicode"
 
 	sekevev1 "github.com/bnema/sekeve/gen/proto/sekeve/v1"
@@ -19,6 +20,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
 
@@ -28,6 +30,7 @@ type Server struct {
 	grpcServer *grpc.Server
 	storage    port.StoragePort
 	auth       *AuthManager
+	gpg        *adaptercrypto.GPGAdapter
 }
 
 // NewServer creates a new Server with the auth interceptor registered.
@@ -35,9 +38,11 @@ func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager)
 	log := zerowrap.FromCtx(ctx)
 	log.Info().Msg("creating gRPC server")
 
+	gpg := adaptercrypto.NewGPGAdapter()
 	s := &Server{
 		storage: storage,
 		auth:    auth,
+		gpg:     gpg,
 	}
 
 	// Check if PIN is already configured so auth interceptor knows about it.
@@ -45,8 +50,27 @@ func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager)
 		auth.SetPINConfigured(true)
 	}
 
+	// Extract fingerprint from stored public key for authentication validation.
+	fp, err := gpg.FingerprintFromArmored(ctx, auth.GPGPublicKey())
+	if err != nil {
+		log.Warn().Err(err).Msg("could not extract fingerprint from stored key")
+	} else {
+		auth.SetGPGFingerprint(fp)
+		log.Info().Str("fingerprint", fp).Msg("registered GPG key fingerprint")
+	}
+
 	s.grpcServer = grpc.NewServer(
 		grpc.UnaryInterceptor(auth.UnaryInterceptor()),
+		grpc.MaxRecvMsgSize(1<<20), // 1 MB
+		grpc.MaxSendMsgSize(4<<20), // 4 MB (list responses can be larger)
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: 5 * time.Minute,
+			MaxConnectionAge:  30 * time.Minute,
+		}),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             5 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	sekevev1.RegisterSekeveServer(s.grpcServer, s)
 
@@ -54,6 +78,8 @@ func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager)
 	healthSrv := health.NewServer()
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	grpc_health_v1.RegisterHealthServer(s.grpcServer, healthSrv)
+
+	auth.StartSweeper(ctx)
 
 	return s
 }
@@ -109,6 +135,19 @@ func validateKeyID(keyID string) error {
 	return nil
 }
 
+// validatePIN checks that a PIN is 4-6 ASCII digits.
+func validatePIN(pin string) error {
+	if len(pin) < 4 || len(pin) > 6 {
+		return fmt.Errorf("PIN must be 4-6 digits")
+	}
+	for _, r := range pin {
+		if r < '0' || r > '9' {
+			return fmt.Errorf("PIN must contain only digits")
+		}
+	}
+	return nil
+}
+
 // Authenticate imports the stored GPG public key, generates a challenge nonce,
 // encrypts the challenge with the client's key and returns the ciphertext.
 func (s *Server) Authenticate(ctx context.Context, req *sekevev1.AuthRequest) (*sekevev1.AuthChallenge, error) {
@@ -129,6 +168,15 @@ func (s *Server) Authenticate(ctx context.Context, req *sekevev1.AuthRequest) (*
 		return nil, log.WrapErrf(err, "gpg import failed: %s", importStderr.String())
 	}
 
+	// Verify the requested key ID resolves to the registered fingerprint.
+	expectedFP := s.auth.GPGFingerprint()
+	if expectedFP == "" {
+		return nil, status.Errorf(codes.FailedPrecondition, "server GPG key not configured")
+	}
+	if err := s.gpg.VerifyKeyIDMatchesFingerprint(ctx, req.GpgKeyId, expectedFP, pubKey); err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "%v", err)
+	}
+
 	nonce, err := s.auth.GenerateChallenge(ctx)
 	if err != nil {
 		return nil, err
@@ -136,23 +184,13 @@ func (s *Server) Authenticate(ctx context.Context, req *sekevev1.AuthRequest) (*
 
 	challenge := s.auth.FormatChallenge(nonce)
 
-	// Encrypt the challenge string with the recipient key.
-	encCmd := exec.CommandContext(ctx, "gpg",
-		"--batch", "--yes",
-		"--trust-model", "always",
-		"--recipient", req.GpgKeyId,
-		"--encrypt",
-	)
-	encCmd.Stdin = bytes.NewBufferString(challenge)
-	var stdout, stderr bytes.Buffer
-	encCmd.Stdout = &stdout
-	encCmd.Stderr = &stderr
-	if err := encCmd.Run(); err != nil {
-		return nil, log.WrapErrf(err, "gpg encrypt failed: %s", stderr.String())
+	ciphertext, err := s.gpg.Encrypt(ctx, []byte(challenge), req.GpgKeyId)
+	if err != nil {
+		return nil, err
 	}
 
 	return &sekevev1.AuthChallenge{
-		EncryptedChallenge: stdout.Bytes(),
+		EncryptedChallenge: ciphertext,
 	}, nil
 }
 
@@ -264,8 +302,8 @@ func (s *Server) HasPIN(ctx context.Context, _ *sekevev1.HasPINRequest) (*sekeve
 // SetPIN stores (or changes) the server PIN. Requires a valid session token.
 // When a PIN already exists the request must include the correct current PIN.
 func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*sekevev1.SetPINResponse, error) {
-	if len(req.NewPin) < 4 || len(req.NewPin) > 6 {
-		return nil, status.Errorf(codes.InvalidArgument, "PIN must be 4-6 digits")
+	if err := validatePIN(req.NewPin); err != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
 	existingHash, existingSalt, err := s.storage.GetPINHash(ctx)
@@ -290,29 +328,36 @@ func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*seke
 	}
 
 	s.auth.SetPINConfigured(true)
+	s.auth.InvalidateAllSessions()
 	return &sekevev1.SetPINResponse{}, nil
 }
 
 // Unlock exchanges a one-time unlock ticket and PIN for a session token.
+// The ticket is consumed on first use regardless of PIN correctness.
 // This RPC is unauthenticated (listed in skipAuthMethods).
 func (s *Server) Unlock(ctx context.Context, req *sekevev1.UnlockRequest) (*sekevev1.UnlockResponse, error) {
 	if err := s.auth.CheckPINRateLimit(); err != nil {
 		return nil, status.Errorf(codes.ResourceExhausted, "%v", err)
 	}
 
-	// Verify PIN before consuming the ticket so the user can retry on wrong PIN.
-	hash, salt, err := s.storage.GetPINHash(ctx)
+	// Consume the ticket first — prevents unlimited PIN guessing per ticket.
+	token, expiresAt, err := s.auth.RedeemUnlockTicket(ctx, req.UnlockTicket)
 	if err != nil {
+		return nil, status.Errorf(codes.Unauthenticated, "invalid unlock ticket: %v", err)
+	}
+
+	// Verify PIN after ticket consumption.
+	hash, salt, pinErr := s.storage.GetPINHash(ctx)
+	if pinErr != nil {
+		// No PIN configured but ticket was issued — revoke the session.
+		s.auth.RevokeSession(token)
 		return nil, status.Errorf(codes.FailedPrecondition, "no PIN configured")
 	}
 	if !adaptercrypto.VerifyPIN(req.Pin, hash, salt) {
 		s.auth.RecordPINFailure()
+		// Revoke the just-issued session since PIN was wrong.
+		s.auth.RevokeSession(token)
 		return nil, status.Errorf(codes.PermissionDenied, "incorrect PIN")
-	}
-
-	token, expiresAt, err := s.auth.RedeemUnlockTicket(ctx, req.UnlockTicket)
-	if err != nil {
-		return nil, status.Errorf(codes.Unauthenticated, "invalid unlock ticket: %v", err)
 	}
 
 	s.auth.ResetPINFailures()
