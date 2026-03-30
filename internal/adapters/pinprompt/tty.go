@@ -20,7 +20,7 @@ func promptTTY(errorMode bool, message string) (string, error) {
 	}
 
 	fmt.Fprint(os.Stderr, "Unlock PIN: ")
-	pin, err := term.ReadPassword(int(os.Stdin.Fd()))
+	pinBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -28,8 +28,12 @@ func promptTTY(errorMode bool, message string) (string, error) {
 		}
 		return "", fmt.Errorf("failed to read PIN: %w", err)
 	}
-	if len(pin) == 0 {
+	if len(pinBytes) == 0 {
 		return "", port.ErrPINPromptCancelled
 	}
-	return string(pin), nil
+	pinStr := string(pinBytes)
+	for i := range pinBytes {
+		pinBytes[i] = 0
+	}
+	return pinStr, nil
 }

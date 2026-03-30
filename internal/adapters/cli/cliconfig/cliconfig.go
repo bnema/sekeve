@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime/secret"
 	"time"
 
 	"github.com/bnema/sekeve/internal/app"
@@ -117,65 +118,71 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 
 	if authResult.RequiresPIN {
 		prompt := PINPromptFromCtx(ctx)
+		var unlockErr error
 
-		pin, pinErr := prompt.PromptForPIN(ctx, false, "")
-		if pinErr != nil {
-			_ = clientApp.Close(ctx)
-			if errors.Is(pinErr, port.ErrPINPromptCancelled) {
-				return nil, pinErr
-			}
-			return nil, fmt.Errorf("failed to read PIN: %w", pinErr)
-		}
-
-		var token string
-		var expiresAt time.Time
-	retryLoop:
-		for attempts := 0; attempts < 3; attempts++ {
-			token, expiresAt, err = clientApp.Sync.Unlock(ctx, authResult.UnlockTicket, pin)
-			if err == nil {
-				break
-			}
-
-			st, ok := status.FromError(err)
-			if !ok {
-				break
-			}
-
-			switch st.Code() {
-			case codes.PermissionDenied:
-				pin, pinErr = prompt.PromptForPIN(ctx, true, "")
-			case codes.Unauthenticated:
-				var authErr error
-				authResult, authErr = clientApp.Vault.Authenticate(ctx)
-				if authErr != nil {
-					err = fmt.Errorf("re-authentication failed: %w", authErr)
-					break retryLoop
-				}
-				pin, pinErr = prompt.PromptForPIN(ctx, true, "Session expired, enter PIN again")
-			case codes.ResourceExhausted:
-				pin, pinErr = prompt.PromptForPIN(ctx, true, st.Message())
-			default:
-				pinErr = err
-			}
-
+		secret.Do(func() {
+			pin, pinErr := prompt.PromptForPIN(ctx, false, "")
 			if pinErr != nil {
-				err = pinErr
-				break
+				unlockErr = pinErr
+				return
 			}
-		}
 
-		if err != nil {
+			var token string
+			var expiresAt time.Time
+		retryLoop:
+			for attempts := 0; attempts < 3; attempts++ {
+				token, expiresAt, err = clientApp.Sync.Unlock(ctx, authResult.UnlockTicket, pin)
+				if err == nil {
+					break
+				}
+
+				st, ok := status.FromError(err)
+				if !ok {
+					break
+				}
+
+				switch st.Code() {
+				case codes.PermissionDenied:
+					pin, pinErr = prompt.PromptForPIN(ctx, true, "")
+				case codes.Unauthenticated:
+					var authErr error
+					authResult, authErr = clientApp.Vault.Authenticate(ctx)
+					if authErr != nil {
+						err = fmt.Errorf("re-authentication failed: %w", authErr)
+						break retryLoop
+					}
+					pin, pinErr = prompt.PromptForPIN(ctx, true, "Session expired, enter PIN again")
+				case codes.ResourceExhausted:
+					pin, pinErr = prompt.PromptForPIN(ctx, true, st.Message())
+				default:
+					pinErr = err
+				}
+
+				if pinErr != nil {
+					err = pinErr
+					break
+				}
+			}
+
+			if err != nil {
+				unlockErr = err
+				return
+			}
+
+			cacheSession(token, expiresAt)
+		})
+
+		if unlockErr != nil {
 			_ = clientApp.Close(ctx)
-			if errors.Is(err, port.ErrPINPromptCancelled) {
-				return nil, err
+			if errors.Is(unlockErr, port.ErrPINPromptCancelled) {
+				return nil, unlockErr
 			}
 			if !prompt.IsTTY() {
 				SendNotification(ctx, "PIN unlock failed")
 			}
-			return nil, log.WrapErr(err, "unlock failed")
+			return nil, log.WrapErr(unlockErr, "unlock failed")
 		}
 
-		cacheSession(token, expiresAt)
 		return clientApp, nil
 	}
 
