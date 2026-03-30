@@ -64,6 +64,22 @@ func WithPINPrompt(ctx context.Context, p port.PINPromptPort) context.Context {
 	return context.WithValue(ctx, pinPromptKey, p)
 }
 
+const guiKey ctxKey = "gui"
+
+// GUIFromCtx retrieves the GUIPort stored in the context.
+func GUIFromCtx(ctx context.Context) port.GUIPort {
+	g, ok := ctx.Value(guiKey).(port.GUIPort)
+	if !ok {
+		panic("GUIFromCtx: no GUIPort in context; ensure WithGUI was called")
+	}
+	return g
+}
+
+// WithGUI returns a new context with the given GUIPort embedded.
+func WithGUI(ctx context.Context, g port.GUIPort) context.Context {
+	return context.WithValue(ctx, guiKey, g)
+}
+
 // ReadPassword prints the prompt to stderr, reads a password without echo, and returns it.
 func ReadPassword(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)

@@ -11,8 +11,8 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/client"
 	"github.com/bnema/sekeve/internal/adapters/cli/server"
 	adapterconfig "github.com/bnema/sekeve/internal/adapters/config"
+	"github.com/bnema/sekeve/internal/adapters/gui"
 	logadapter "github.com/bnema/sekeve/internal/adapters/logger"
-	"github.com/bnema/sekeve/internal/adapters/pinprompt"
 	"github.com/bnema/sekeve/internal/adapters/xdg"
 	"github.com/bnema/sekeve/internal/version"
 	"github.com/spf13/cobra"
@@ -43,8 +43,9 @@ func NewRootCmd() *cobra.Command {
 			}
 
 			ctx = cliconfig.WithConfig(ctx, cfg)
-			pinPromptAdapter := pinprompt.NewPINPromptAdapter()
-			ctx = cliconfig.WithPINPrompt(ctx, pinPromptAdapter)
+			guiAdapter := gui.NewGUIAdapter()
+			ctx = cliconfig.WithPINPrompt(ctx, guiAdapter)
+			ctx = cliconfig.WithGUI(ctx, guiAdapter)
 			cmd.SetContext(ctx)
 			return nil
 		},
@@ -72,6 +73,7 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(client.NewRmCmd())
 	root.AddCommand(client.NewSearchCmd())
 	root.AddCommand(client.NewDmenuCmd())
+	root.AddCommand(client.NewOmniboxCmd())
 	root.AddCommand(client.NewInitCmd())
 	root.AddCommand(client.NewImportCmd())
 	root.AddCommand(client.NewInjectCmd())
