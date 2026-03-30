@@ -1,7 +1,8 @@
 version: 2
 
 builds:
-  - main: ./cmd/sekeve
+  - id: cli
+    main: ./cmd/sekeve
     binary: sekeve
     env:
       - CGO_ENABLED=0
@@ -18,12 +19,33 @@ builds:
     flags:
       - -trimpath
 
+  - id: server
+    main: ./cmd/sekeve
+    binary: sekeve
+    env:
+      - CGO_ENABLED=0
+      - GOEXPERIMENT=runtimesecret
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    tags:
+      - nogtk
+    ldflags:
+      - -s -w -X github.com/bnema/sekeve/internal/version.Version={{.Version}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+
 archives:
-  - format: tar.gz
+  - ids: [cli]
+    format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 dockers:
-  - image_templates:
+  - ids: [server]
+    image_templates:
       - "ghcr.io/bnema/sekeve:{{ .Version }}-amd64"
     use: buildx
     goarch: amd64
@@ -31,7 +53,8 @@ dockers:
     build_flag_templates:
       - "--pull"
       - "--platform=linux/amd64"
-  - image_templates:
+  - ids: [server]
+    image_templates:
       - "ghcr.io/bnema/sekeve:{{ .Version }}-arm64"
     use: buildx
     goarch: arm64

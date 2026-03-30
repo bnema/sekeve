@@ -1,5 +1,5 @@
 // internal/adapters/gui/widget/entry.go
-//go:build linux
+//go:build linux && !nogtk
 
 package widget
 

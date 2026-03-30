@@ -1,5 +1,5 @@
 // internal/adapters/gui/widget/tabbar.go
-//go:build linux
+//go:build linux && !nogtk
 
 package widget
 

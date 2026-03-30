@@ -1,5 +1,5 @@
 // internal/adapters/gui/icons.go
-//go:build linux
+//go:build linux && !nogtk
 
 package gui
 

@@ -1,5 +1,5 @@
 // internal/adapters/gui/omnibox/add.go
-//go:build linux
+//go:build linux && !nogtk
 
 package omnibox
 

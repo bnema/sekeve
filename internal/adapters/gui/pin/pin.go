@@ -1,5 +1,5 @@
 // internal/adapters/gui/pin/pin.go
-//go:build linux
+//go:build linux && !nogtk
 
 package pin
 

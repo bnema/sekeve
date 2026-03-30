@@ -11,7 +11,6 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/client"
 	"github.com/bnema/sekeve/internal/adapters/cli/server"
 	adapterconfig "github.com/bnema/sekeve/internal/adapters/config"
-	"github.com/bnema/sekeve/internal/adapters/gui"
 	logadapter "github.com/bnema/sekeve/internal/adapters/logger"
 	"github.com/bnema/sekeve/internal/adapters/xdg"
 	"github.com/bnema/sekeve/internal/version"
@@ -43,9 +42,6 @@ func NewRootCmd() *cobra.Command {
 			}
 
 			ctx = cliconfig.WithConfig(ctx, cfg)
-			guiAdapter := gui.NewGUIAdapter()
-			ctx = cliconfig.WithPINPrompt(ctx, guiAdapter)
-			ctx = cliconfig.WithGUI(ctx, guiAdapter)
 			cmd.SetContext(ctx)
 			return nil
 		},
@@ -66,18 +62,18 @@ func NewRootCmd() *cobra.Command {
 		},
 	})
 
-	root.AddCommand(client.NewAddCmd())
-	root.AddCommand(client.NewGetCmd())
-	root.AddCommand(client.NewListCmd())
-	root.AddCommand(client.NewEditCmd())
-	root.AddCommand(client.NewRmCmd())
-	root.AddCommand(client.NewSearchCmd())
-	root.AddCommand(client.NewDmenuCmd())
-	root.AddCommand(client.NewOmniboxCmd())
+	root.AddCommand(client.WithGUI(client.NewAddCmd()))
+	root.AddCommand(client.WithGUI(client.NewGetCmd()))
+	root.AddCommand(client.WithGUI(client.NewListCmd()))
+	root.AddCommand(client.WithGUI(client.NewEditCmd()))
+	root.AddCommand(client.WithGUI(client.NewRmCmd()))
+	root.AddCommand(client.WithGUI(client.NewSearchCmd()))
+	root.AddCommand(client.WithGUI(client.NewDmenuCmd()))
+	root.AddCommand(client.WithGUI(client.NewOmniboxCmd()))
 	root.AddCommand(client.NewInitCmd())
-	root.AddCommand(client.NewImportCmd())
-	root.AddCommand(client.NewInjectCmd())
-	root.AddCommand(client.NewPINCmd())
+	root.AddCommand(client.WithGUI(client.NewImportCmd()))
+	root.AddCommand(client.WithGUI(client.NewInjectCmd()))
+	root.AddCommand(client.WithGUI(client.NewPINCmd()))
 
 	serverCmd := &cobra.Command{Use: "server", Short: "Server management commands"}
 	serverCmd.AddCommand(server.NewStartCmd())

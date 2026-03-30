@@ -1,9 +1,9 @@
-FROM golang:1.26 AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN GOEXPERIMENT=runtimesecret CGO_ENABLED=0 go build -o /bin/sekeve ./cmd/sekeve
+RUN GOEXPERIMENT=runtimesecret CGO_ENABLED=0 go build -tags nogtk -o /bin/sekeve ./cmd/sekeve
 RUN CGO_ENABLED=0 go install github.com/grpc-ecosystem/grpc-health-probe@v0.4.46
 
 FROM alpine:3.23
