@@ -62,9 +62,6 @@ func New(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *Omnibox {
 	})
 	if o.modeBar.Box != nil {
 		o.modeBar.Box.AddCssClass("sekeve-header")
-		o.modeBar.Box.SetMarginTop(8)
-		o.modeBar.Box.SetMarginStart(12)
-		o.modeBar.Box.SetMarginEnd(12)
 		root.Append(&o.modeBar.Box.Widget)
 	}
 
@@ -78,9 +75,7 @@ func New(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *Omnibox {
 		},
 	})
 	if o.categoryBar.Box != nil {
-		o.categoryBar.Box.SetMarginStart(12)
-		o.categoryBar.Box.SetMarginEnd(12)
-		o.categoryBar.Box.SetMarginTop(4)
+		o.categoryBar.Box.AddCssClass("sekeve-category-bar")
 		root.Append(&o.categoryBar.Box.Widget)
 	}
 
@@ -404,18 +399,46 @@ func (f *focusableWidget) HasFocus() bool    { return f.w.HasFocus() }
 func (f *focusableWidget) SetVisible(v bool) { f.w.SetVisible(v) }
 func (f *focusableWidget) GetVisible() bool  { return f.w.GetVisible() }
 
-func buildFooter() *gtk.Label {
-	text := "Enter copy  |  Ctrl+Enter detail  |  Esc close  |  Ctrl+1-4 category"
-	footer, _ := gtkutil.SafeNewWidget("footer-label", func() *gtk.Label {
-		return gtk.NewLabel(&text)
+func buildFooter() *gtk.Box {
+	footerBox, _ := gtkutil.SafeNewWidget("footer-box", func() *gtk.Box {
+		return gtk.NewBox(gtk.OrientationHorizontalValue, 14)
 	})
-	if footer != nil {
-		footer.AddCssClass("sekeve-footer")
-		footer.SetHalign(gtk.AlignCenterValue)
-		footer.SetMarginTop(6)
-		footer.SetMarginBottom(6)
+	if footerBox == nil {
+		return nil
 	}
-	return footer
+	footerBox.AddCssClass("sekeve-footer")
+
+	hints := []struct{ key, action string }{
+		{"Enter", "copy"},
+		{"^Enter", "details"},
+		{"Tab", "next"},
+		{"Esc", "close"},
+	}
+	for _, h := range hints {
+		hintBox, _ := gtkutil.SafeNewWidget("hint", func() *gtk.Box {
+			return gtk.NewBox(gtk.OrientationHorizontalValue, 2)
+		})
+		if hintBox == nil {
+			continue
+		}
+		kbdLabel, _ := gtkutil.SafeNewWidget("kbd", func() *gtk.Label {
+			k := h.key
+			return gtk.NewLabel(&k)
+		})
+		if kbdLabel != nil {
+			kbdLabel.AddCssClass("sekeve-kbd")
+			hintBox.Append(&kbdLabel.Widget)
+		}
+		actionLabel, _ := gtkutil.SafeNewWidget("action", func() *gtk.Label {
+			a := h.action
+			return gtk.NewLabel(&a)
+		})
+		if actionLabel != nil {
+			hintBox.Append(&actionLabel.Widget)
+		}
+		footerBox.Append(&hintBox.Widget)
+	}
+	return footerBox
 }
 
 // categoryToIndex maps an entity.EntryType to a tab index.

@@ -63,10 +63,6 @@ func NewSearchView(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *
 		placeholder := "Search entries..."
 		sv.entry.SetPlaceholderText(&placeholder)
 		sv.entry.SetHexpand(true)
-		sv.entry.SetMarginStart(12)
-		sv.entry.SetMarginEnd(12)
-		sv.entry.SetMarginTop(8)
-		sv.entry.SetMarginBottom(4)
 
 		changedCb := func(_ gtk.SearchEntry) {
 			sv.onSearchChanged()
@@ -74,7 +70,16 @@ func NewSearchView(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *
 		gtkutil.RetainCallback(&sv.callbacks, changedCb)
 		sv.entry.ConnectSearchChanged(&changedCb)
 
-		root.Append(&sv.entry.Widget)
+		searchRow, _ := gtkutil.SafeNewWidget("search-row", func() *gtk.Box {
+			return gtk.NewBox(gtk.OrientationHorizontalValue, 8)
+		})
+		if searchRow != nil {
+			searchRow.AddCssClass("sekeve-search-row")
+			searchRow.Append(&sv.entry.Widget)
+			root.Append(&searchRow.Widget)
+		} else {
+			root.Append(&sv.entry.Widget)
+		}
 	}
 
 	// --- Scrolled result list ---

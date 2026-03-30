@@ -12,17 +12,20 @@ window {
     background-color: #0f1a16;
     border: 1px solid #1a3028;
     border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(52, 211, 153, 0.08);
+    font-size: 14px;
 }
 
 .sekeve-header {
     background-color: #0d1814;
     border-bottom: 1px solid #1a3028;
+    padding: 6px 10px;
 }
 
 .sekeve-tab {
     padding: 4px 14px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     color: #4a7a66;
     background: transparent;
@@ -34,11 +37,18 @@ window {
     color: #0f1a16;
 }
 
+.sekeve-category-bar {
+    border-bottom: 1px solid #1a3028;
+    padding: 6px 10px;
+}
+
 .sekeve-category {
     padding: 3px 10px;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: #3a6a56;
     background: transparent;
     border: none;
@@ -49,13 +59,32 @@ window {
     color: #34d399;
 }
 
+.sekeve-search-row {
+    border-bottom: 1px solid #1a3028;
+    padding: 0 12px;
+}
+
+.sekeve-search-row entry, .sekeve-search-row searchentry {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 10px 0;
+    font-size: 14px;
+    color: #c8e8d8;
+}
+
+.sekeve-search-row entry:focus, .sekeve-search-row searchentry:focus {
+    border: none;
+    box-shadow: none;
+}
+
 entry, passwordentry {
     background-color: #0a140f;
     color: #c8e8d8;
     border: 1px solid #1a3028;
     border-radius: 6px;
     padding: 8px 10px;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 entry:focus, passwordentry:focus {
@@ -66,7 +95,7 @@ entry:focus, passwordentry:focus {
 textview {
     background-color: #0a140f;
     color: #c8e8d8;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 textview border {
@@ -79,9 +108,11 @@ textview:focus border {
 }
 
 .sekeve-label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     color: #4a7a66;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .sekeve-row {
@@ -94,6 +125,7 @@ textview:focus border {
 
 .sekeve-row-name {
     font-weight: 500;
+    font-size: 14px;
     color: #b0d8c8;
 }
 
@@ -102,15 +134,23 @@ textview:focus border {
 }
 
 .sekeve-row-meta {
-    font-size: 11px;
+    font-size: 12px;
     color: #3a6a56;
 }
 
 .sekeve-footer {
     border-top: 1px solid #1a3028;
-    font-size: 10px;
+    font-size: 11px;
     color: #2a5040;
     padding: 6px 12px;
+}
+
+.sekeve-kbd {
+    background-color: rgba(52, 211, 153, 0.08);
+    color: #4a7a66;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
 }
 
 .sekeve-btn-cancel {
@@ -119,7 +159,7 @@ textview:focus border {
     border: none;
     border-radius: 6px;
     padding: 6px 18px;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .sekeve-btn-save {
@@ -128,7 +168,7 @@ textview:focus border {
     border: none;
     border-radius: 6px;
     padding: 6px 18px;
-    font-size: 12px;
+    font-size: 13px;
 }
 
 .sekeve-copy-btn {
@@ -150,6 +190,13 @@ textview:focus border {
 .sekeve-icon-search { color: #3a6a56; }
 
 /* PIN prompt overrides */
+.sekeve-pin {
+    background-color: #0f1a16;
+    border: 1px solid #1a3028;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(52, 211, 153, 0.08);
+}
+
 .sekeve-pin entry, .sekeve-pin passwordentry {
     font-size: 20px;
     min-width: 320px;

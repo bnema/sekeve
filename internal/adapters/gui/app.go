@@ -126,6 +126,7 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 	app := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
 
 	var ob *omnibox.Omnibox // capture for state saving
+	var callbacks []interface{}
 
 	activateCb := func(_ gio.Application) {
 		window := gtk.NewApplicationWindow(app)
@@ -133,15 +134,24 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 		title := "Sekeve"
 		window.SetTitle(&title)
 		window.SetDecorated(false)
-		window.SetDefaultSize(520, 420)
+		window.SetFocusVisible(false)
 
-		setupLayerShell(&window.Window, "sekeve-omnibox")
+		if !setupLayerShell(&window.Window, "sekeve-omnibox") {
+			fmt.Fprintln(os.Stderr, "sekeve: WARNING: layer-shell not available, omnibox will open as regular window")
+		}
 		setupCSS()
 
 		quitFn := func() { app.Quit() }
 
 		ob = omnibox.New(ctx, cfg, quitFn)
-		window.SetChild(&ob.Root.Widget)
+
+		// Center the omnibox inside the full-screen layer-shell surface.
+		centerBox := gtk.NewBox(gtk.OrientationVerticalValue, 0)
+		centerBox.SetHalign(gtk.AlignCenterValue)
+		centerBox.SetValign(gtk.AlignCenterValue)
+		centerBox.Append(&ob.Root.Widget)
+		window.SetChild(&centerBox.Widget)
+
 		ob.AttachKeyController(&window.Window)
 
 		// Restore cached state if available.
@@ -153,11 +163,13 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 			app.Quit()
 			return true
 		}
+		gtkutil.RetainCallback(&callbacks, closeRequestCb)
 		window.ConnectCloseRequest(&closeRequestCb)
 
 		window.Show()
 		ob.GrabFocus()
 	}
+	gtkutil.RetainCallback(&callbacks, activateCb)
 	app.ConnectActivate(&activateCb)
 
 	done := make(chan struct{})
