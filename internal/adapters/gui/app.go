@@ -7,11 +7,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
 	"github.com/bnema/puregotk/v4/gdk"
+	"github.com/bnema/puregotk/v4/gio"
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/bnema/sekeve/internal/adapters/gui/omnibox"
 	"github.com/bnema/sekeve/internal/adapters/gui/pin"
 	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/sekeve/pkg/gtkutil"
@@ -113,8 +116,63 @@ func (a *GUIAdapter) restoreState() *omniboxState {
 }
 
 func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig) error {
-	// TODO: Task 11 — implement omnibox
-	return fmt.Errorf("omnibox not yet implemented")
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	appID := "dev.bnema.sekeve.omnibox"
+	app := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
+
+	activateCb := func(_ gio.Application) {
+		window := gtk.NewApplicationWindow(app)
+
+		title := "Sekeve"
+		window.SetTitle(&title)
+		window.SetDecorated(false)
+		window.SetDefaultSize(520, 420)
+
+		setupLayerShell(&window.Window, "sekeve-omnibox")
+		setupCSS()
+
+		quitFn := func() { app.Quit() }
+
+		ob := omnibox.New(ctx, cfg, quitFn)
+		window.SetChild(&ob.Root.Widget)
+		ob.AttachKeyController(&window.Window)
+
+		closeRequestCb := func(_ gtk.Window) bool {
+			app.Quit()
+			return true
+		}
+		window.ConnectCloseRequest(&closeRequestCb)
+
+		window.Show()
+		ob.GrabFocus()
+	}
+	app.ConnectActivate(&activateCb)
+
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+		case <-done:
+			return
+		}
+		// Context cancelled — close the app on the GTK thread.
+		select {
+		case <-done:
+			return
+		default:
+		}
+		gtkutil.IdleAddOnce(func() { app.Quit() })
+	}()
+
+	app.Run(0, nil)
+	close(done)
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return nil
 }
 
 func setupCSS() {

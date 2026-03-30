@@ -16,9 +16,18 @@ const (
 )
 
 // OmniboxConfig controls the initial state of the omnibox when opened.
+// Vault callbacks allow the omnibox to list, read, and decrypt entries
+// without importing the domain service directly.
 type OmniboxConfig struct {
 	Mode     OmniboxMode
 	Category entity.EntryType // EntryTypeUnspecified means "All"
+
+	// Vault operation callbacks.
+	ListEntries   func(ctx context.Context, t entity.EntryType) ([]*entity.Envelope, error)
+	GetEntry      func(ctx context.Context, id string) (*entity.Envelope, error)
+	DecryptAndUse func(ctx context.Context, ciphertext []byte, fn func(plaintext []byte)) error
+	AddEntry      func(ctx context.Context, env *entity.Envelope) error
+	UpdateEntry   func(ctx context.Context, env *entity.Envelope) error
 }
 
 // GUIPort abstracts the graphical user interface.

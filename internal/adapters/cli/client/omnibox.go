@@ -43,8 +43,13 @@ Bind this to a keyboard shortcut (e.g. Ctrl+Super+P) in your compositor.`,
 			// Show omnibox (defaults to Search / All).
 			guiPort := cliconfig.GUIFromCtx(ctx)
 			omniCfg := port.OmniboxConfig{
-				Mode:     port.OmniboxModeSearch,
-				Category: entity.EntryTypeUnspecified, // All
+				Mode:          port.OmniboxModeSearch,
+				Category:      entity.EntryTypeUnspecified, // All
+				ListEntries:   clientApp.Vault.ListEntries,
+				GetEntry:      clientApp.Vault.GetEntry,
+				DecryptAndUse: clientApp.Vault.DecryptAndUse,
+				AddEntry:      clientApp.Vault.AddEntry,
+				UpdateEntry:   clientApp.Vault.UpdateEntry,
 			}
 
 			if err := guiPort.ShowOmnibox(ctx, omniCfg); err != nil {
