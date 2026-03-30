@@ -12,7 +12,6 @@ window {
     outline-style: none;
     outline-width: 0;
     outline-color: transparent;
-    -gtk-outline-radius: 0;
 }
 
 *:focus, *:focus-visible, *:focus-within {
