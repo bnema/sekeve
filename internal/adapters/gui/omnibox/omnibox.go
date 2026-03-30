@@ -5,6 +5,7 @@ package omnibox
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -13,6 +14,7 @@ import (
 	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/sekeve/pkg/focusring"
 	"github.com/bnema/sekeve/pkg/gtkutil"
+	"github.com/bnema/zerowrap"
 )
 
 // Omnibox is the main container widget with L1/L2 tabs, a search view,
@@ -166,11 +168,23 @@ func (o *Omnibox) AttachKeyController(window *gtk.Window) {
 			return o.handleEscape()
 
 		case gdk.KEY_Tab:
-			o.ring.Next()
+			log := zerowrap.FromCtx(o.ctx)
+			w := o.ring.Next()
+			if w != nil {
+				log.Debug().Str("widget", fmt.Sprintf("%T", w)).Msg("Tab → focus next")
+			} else {
+				log.Warn().Msg("Tab → ring.Next() returned nil (empty ring?)")
+			}
 			return true
 
 		case gdk.KEY_ISO_Left_Tab: // Shift+Tab
-			o.ring.Prev()
+			log := zerowrap.FromCtx(o.ctx)
+			w := o.ring.Prev()
+			if w != nil {
+				log.Debug().Str("widget", fmt.Sprintf("%T", w)).Msg("Shift+Tab → focus prev")
+			} else {
+				log.Warn().Msg("Shift+Tab → ring.Prev() returned nil")
+			}
 			return true
 
 		case gdk.KEY_1:
@@ -394,6 +408,8 @@ func (o *Omnibox) rebuildFocusRing() {
 			}
 		}
 	}
+	log := zerowrap.FromCtx(o.ctx)
+	log.Debug().Int("count", len(widgets)).Int("mode", o.currentMode).Msg("rebuildFocusRing")
 	o.ring.SetWidgets(widgets...)
 }
 

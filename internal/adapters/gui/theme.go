@@ -127,8 +127,17 @@ textview:focus border {
     letter-spacing: 0.04em;
 }
 
+list, listview, listbox {
+    background-color: transparent;
+}
+
+row, list row, listbox row {
+    background-color: transparent;
+}
+
 .sekeve-row {
     padding: 7px 12px;
+    background-color: transparent;
 }
 
 .sekeve-row:selected, .sekeve-row-selected {
