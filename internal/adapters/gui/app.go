@@ -119,8 +119,13 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	// Check for cached state.
+	cached := a.restoreState()
+
 	appID := "dev.bnema.sekeve.omnibox"
 	app := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
+
+	var ob *omnibox.Omnibox // capture for state saving
 
 	activateCb := func(_ gio.Application) {
 		window := gtk.NewApplicationWindow(app)
@@ -135,9 +140,14 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 
 		quitFn := func() { app.Quit() }
 
-		ob := omnibox.New(ctx, cfg, quitFn)
+		ob = omnibox.New(ctx, cfg, quitFn)
 		window.SetChild(&ob.Root.Widget)
 		ob.AttachKeyController(&window.Window)
+
+		// Restore cached state if available.
+		if cached != nil {
+			ob.RestoreState(int(cached.Mode), cached.Category, cached.Query)
+		}
 
 		closeRequestCb := func(_ gtk.Window) bool {
 			app.Quit()
@@ -168,6 +178,16 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 
 	app.Run(0, nil)
 	close(done)
+
+	// Save state for next invocation.
+	if ob != nil {
+		mode, category, query := ob.State()
+		a.saveState(&omniboxState{
+			Mode:     port.OmniboxMode(mode),
+			Category: category,
+			Query:    query,
+		})
+	}
 
 	if ctx.Err() != nil {
 		return ctx.Err()

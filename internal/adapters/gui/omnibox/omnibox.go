@@ -131,6 +131,29 @@ func New(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *Omnibox {
 	return o
 }
 
+// State returns the current omnibox state for caching.
+func (o *Omnibox) State() (mode int, category int, query string) {
+	mode = o.currentMode
+	category = o.categoryBar.Active()
+	if o.search != nil && o.search.entry != nil {
+		query = o.search.entry.GetText()
+	}
+	return
+}
+
+// RestoreState applies a previously cached state.
+func (o *Omnibox) RestoreState(mode int, category int, query string) {
+	if category > 0 {
+		o.categoryBar.SetActive(category)
+	}
+	if query != "" && o.search != nil && o.search.entry != nil {
+		o.search.entry.SetText(query)
+	}
+	if mode == 1 {
+		o.modeBar.SetActive(1)
+	}
+}
+
 // AttachKeyController creates a key controller and attaches it to the
 // given window. The controller routes global keys (Escape, Tab, Ctrl+1-4,
 // Up/Down/Enter to the search view).
