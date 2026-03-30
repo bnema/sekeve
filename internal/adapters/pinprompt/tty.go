@@ -1,9 +1,12 @@
 package pinprompt
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 
+	"github.com/bnema/sekeve/internal/port"
 	"golang.org/x/term"
 )
 
@@ -20,7 +23,13 @@ func promptTTY(errorMode bool, message string) (string, error) {
 	pin, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return "", port.ErrPINPromptCancelled
+		}
 		return "", fmt.Errorf("failed to read PIN: %w", err)
+	}
+	if len(pin) == 0 {
+		return "", port.ErrPINPromptCancelled
 	}
 	return string(pin), nil
 }

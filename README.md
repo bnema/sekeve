@@ -17,6 +17,10 @@ make build
 make install
 ```
 
+### Runtime dependencies (Linux)
+
+The GTK4 PIN overlay requires `libgtk-4` and `gtk4-layer-shell` at runtime. Install via your package manager (e.g., `sudo pacman -S gtk4 gtk4-layer-shell` on Arch, `sudo apt install libgtk-4-1 libgtk4-layer-shell0` on Debian). The binary falls back to terminal PIN input if these are not present, but currently requires GTK4 libraries to be installed to start.
+
 ## Server setup
 
 > [!WARNING]

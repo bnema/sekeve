@@ -4,6 +4,7 @@ package cliconfig
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -120,6 +121,9 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		pin, pinErr := prompt.PromptForPIN(ctx, false, "")
 		if pinErr != nil {
 			_ = clientApp.Close(ctx)
+			if errors.Is(pinErr, port.ErrPINPromptCancelled) {
+				return nil, pinErr
+			}
 			return nil, fmt.Errorf("failed to read PIN: %w", pinErr)
 		}
 
@@ -162,6 +166,9 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 
 		if err != nil {
 			_ = clientApp.Close(ctx)
+			if errors.Is(err, port.ErrPINPromptCancelled) {
+				return nil, err
+			}
 			if !prompt.IsTTY() {
 				SendNotification(ctx, "PIN unlock failed")
 			}

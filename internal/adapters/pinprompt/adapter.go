@@ -53,8 +53,14 @@ func NewPINPromptAdapter() *PINPromptAdapter {
 // IsTTY reports whether the adapter will use terminal input.
 func (a *PINPromptAdapter) IsTTY() bool { return a.isTTY }
 
+const maxMessageLen = 200
+
 // PromptForPIN asks the user for a PIN via GUI or TTY fallback.
 func (a *PINPromptAdapter) PromptForPIN(ctx context.Context, errorMode bool, message string) (string, error) {
+	if len(message) > maxMessageLen {
+		message = message[:maxMessageLen]
+	}
+
 	if a.guiAvailable {
 		return a.promptGUI(ctx, errorMode, message)
 	}
@@ -64,7 +70,7 @@ func (a *PINPromptAdapter) PromptForPIN(ctx context.Context, errorMode bool, mes
 		return promptTTY(errorMode, message)
 	}
 
-	return "", fmt.Errorf("no PIN input method available (no GUI display and no TTY)")
+	return "", port.ErrNoPINInputMethod
 }
 
 const pinCSS = `
@@ -138,13 +144,14 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 		vbox.SetMarginEnd(16)
 
 		label := gtk.NewLabel(nil)
-		if message != "" {
+		switch {
+		case message != "":
 			label.SetText(message)
 			label.SetVisible(true)
-		} else if errorMode {
+		case errorMode:
 			label.SetText(defaultPINError)
 			label.SetVisible(true)
-		} else {
+		default:
 			label.SetVisible(false)
 		}
 		vbox.Append(&label.Widget)
@@ -187,11 +194,17 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 	}
 	app.ConnectActivate(&activateCb)
 
-	// Context cancellation from a goroutine.
+	// Context cancellation from a goroutine. The done channel prevents
+	// posting to the GLib main loop after app.Run has already returned.
 	done := make(chan struct{})
 	go func() {
 		select {
 		case <-ctx.Done():
+			select {
+			case <-done:
+				return // app.Run already returned, don't post to dead loop
+			default:
+			}
 			quitFn := glib.SourceOnceFunc(func(uintptr) { app.Quit() })
 			glib.IdleAddOnce(&quitFn, 0)
 		case <-done:
