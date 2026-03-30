@@ -8,6 +8,19 @@ window {
     background-color: transparent;
 }
 
+* {
+    outline-style: none;
+    outline-width: 0;
+    outline-color: transparent;
+    -gtk-outline-radius: 0;
+}
+
+*:focus, *:focus-visible, *:focus-within {
+    outline-style: none;
+    outline-width: 0;
+    outline-color: transparent;
+}
+
 .sekeve-overlay {
     background-color: #0f1a16;
     border: 1px solid #1a3028;

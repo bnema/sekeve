@@ -52,7 +52,7 @@ func PromptGUI(ctx context.Context, validate port.PINValidateFunc, css string) e
 		cssProvider := gtk.NewCssProvider()
 		cssProvider.LoadFromString(css)
 		if display := gdk.DisplayGetDefault(); display != nil {
-			gtk.StyleContextAddProviderForDisplay(display, cssProvider, 600)
+			gtk.StyleContextAddProviderForDisplay(display, cssProvider, 800)
 		}
 
 		vbox := gtk.NewBox(gtk.OrientationVerticalValue, 0)

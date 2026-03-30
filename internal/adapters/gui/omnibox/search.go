@@ -104,10 +104,8 @@ func NewSearchView(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *
 
 	if sv.scroll != nil {
 		sv.scroll.SetPolicy(gtk.PolicyNeverValue, gtk.PolicyAutomaticValue)
-		sv.scroll.SetMinContentHeight(40)
 		sv.scroll.SetMaxContentHeight(320)
-		sv.scroll.SetMarginStart(4)
-		sv.scroll.SetMarginEnd(4)
+		sv.scroll.SetPropagateNaturalHeight(true)
 		if sv.listBox != nil {
 			sv.scroll.SetChild(&sv.listBox.Widget)
 		}

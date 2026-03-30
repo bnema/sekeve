@@ -211,7 +211,7 @@ func setupCSS() {
 	cssProvider := gtk.NewCssProvider()
 	gtkutil.LoadCSS(cssProvider, emeraldCSS)
 	if display := gdk.DisplayGetDefault(); display != nil {
-		gtk.StyleContextAddProviderForDisplay(display, cssProvider, 600)
+		gtk.StyleContextAddProviderForDisplay(display, cssProvider, 800)
 	}
 }
 
