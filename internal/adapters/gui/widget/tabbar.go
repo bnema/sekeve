@@ -47,7 +47,6 @@ func NewTabBar(cfg TabBarConfig) *TabBar {
 			continue
 		}
 		btn.AddCssClass(cfg.BaseClass)
-		btn.SetCanFocus(false)
 		if i == 0 {
 			btn.AddCssClass(cfg.ActiveClass)
 		}

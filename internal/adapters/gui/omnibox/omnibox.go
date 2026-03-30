@@ -202,6 +202,10 @@ func (o *Omnibox) AttachKeyController(window *gtk.Window) {
 				return true
 			}
 		case gdk.KEY_Return:
+			// If a tab button has focus, let GTK handle Enter to click it.
+			if o.isTabButtonFocused() {
+				return false
+			}
 			if o.currentMode == 0 {
 				if ctrl {
 					o.openDetail()
@@ -384,8 +388,24 @@ func (o *Omnibox) rebuildFocusRing() {
 		if o.search != nil && o.search.listBox != nil {
 			widgets = append(widgets, &focusableWidget{&o.search.listBox.Widget})
 		}
+		// Add mode tabs (Search, Add) to focus ring so Tab cycles through them.
+		for i := 0; i < o.modeBar.Len(); i++ {
+			if btn := o.modeBar.ButtonAt(i); btn != nil {
+				widgets = append(widgets, &focusableWidget{&btn.Widget})
+			}
+		}
 	}
 	o.ring.SetWidgets(widgets...)
+}
+
+// isTabButtonFocused returns true if any mode tab button currently has focus.
+func (o *Omnibox) isTabButtonFocused() bool {
+	for i := 0; i < o.modeBar.Len(); i++ {
+		if btn := o.modeBar.ButtonAt(i); btn != nil && btn.HasFocus() {
+			return true
+		}
+	}
+	return false
 }
 
 // focusableWidget adapts a gtk.Widget (whose GrabFocus returns bool)
