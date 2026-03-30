@@ -68,6 +68,8 @@ func (a *PINPromptAdapter) PromptForPIN(ctx context.Context, errorMode bool, mes
 	return "", fmt.Errorf("no PIN input method available (no GUI display and no TTY)")
 }
 
+// promptTTY reads a PIN from the terminal. Note: term.ReadPassword is a blocking
+// syscall with no cancellation mechanism, so ctx is not used here.
 func (a *PINPromptAdapter) promptTTY(_ context.Context, errorMode bool, message string) (string, error) {
 	if errorMode && message == "" {
 		fmt.Fprintln(os.Stderr, "Incorrect PIN, please try again.")
@@ -114,10 +116,7 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	var (
-		pin       string
-		cancelled bool
-	)
+	var pin string
 
 	appID := "dev.bnema.sekeve.pinprompt"
 	app := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
@@ -193,7 +192,6 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 		keyCtrl := gtk.NewEventControllerKey()
 		keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, _ gdk.ModifierType) bool {
 			if keyval == uint(gdk.KEY_Escape) {
-				cancelled = true
 				app.Quit()
 				return true
 			}
@@ -204,9 +202,6 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 
 		// Window close without submitting.
 		closeRequestCb := func(gtk.Window) bool {
-			if pin == "" {
-				cancelled = true
-			}
 			app.Quit()
 			return true
 		}
@@ -218,13 +213,18 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 	app.ConnectActivate(&activateCb)
 
 	// Context cancellation from a goroutine.
+	done := make(chan struct{})
 	go func() {
-		<-ctx.Done()
-		quitFn := glib.SourceOnceFunc(func(uintptr) { app.Quit() })
-		glib.IdleAddOnce(&quitFn, 0)
+		select {
+		case <-ctx.Done():
+			quitFn := glib.SourceOnceFunc(func(uintptr) { app.Quit() })
+			glib.IdleAddOnce(&quitFn, 0)
+		case <-done:
+		}
 	}()
 
 	app.Run(0, nil)
+	close(done)
 
 	// Determine result.
 	if pin != "" {
@@ -232,9 +232,6 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 	}
 	if ctx.Err() != nil {
 		return "", ctx.Err()
-	}
-	if cancelled {
-		return "", port.ErrPINPromptCancelled
 	}
 	return "", port.ErrPINPromptCancelled
 }
