@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/server"
 	adapterconfig "github.com/bnema/sekeve/internal/adapters/config"
 	logadapter "github.com/bnema/sekeve/internal/adapters/logger"
+	"github.com/bnema/sekeve/internal/adapters/pinprompt"
 	"github.com/bnema/sekeve/internal/adapters/xdg"
 	"github.com/bnema/sekeve/internal/version"
 	"github.com/spf13/cobra"
@@ -42,6 +43,8 @@ func NewRootCmd() *cobra.Command {
 			}
 
 			ctx = cliconfig.WithConfig(ctx, cfg)
+			pinPromptAdapter := pinprompt.NewPINPromptAdapter()
+			ctx = cliconfig.WithPINPrompt(ctx, pinPromptAdapter)
 			cmd.SetContext(ctx)
 			return nil
 		},
@@ -73,7 +76,6 @@ func NewRootCmd() *cobra.Command {
 	root.AddCommand(client.NewImportCmd())
 	root.AddCommand(client.NewInjectCmd())
 	root.AddCommand(client.NewPINCmd())
-	registerPINPrompt(root)
 
 	serverCmd := &cobra.Command{Use: "server", Short: "Server management commands"}
 	serverCmd.AddCommand(server.NewStartCmd())
