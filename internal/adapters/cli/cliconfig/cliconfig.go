@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/bnema/sekeve/internal/app"
@@ -79,33 +78,6 @@ func SendNotification(ctx context.Context, body string) {
 	_ = exec.CommandContext(ctx, "notify-send", "-a", "sekeve", "-i", "dialog-password", "Sekeve", body).Run()
 }
 
-// execPINPrompt spawns "sekeve pin-prompt" as a subprocess and reads the PIN from stdout.
-func execPINPrompt(ctx context.Context, errorMode bool, message string) (string, error) {
-	exePath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve executable path: %w", err)
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-	defer cancel()
-
-	args := []string{"pin-prompt"}
-	if errorMode {
-		args = append(args, "--error")
-	}
-	if message != "" {
-		args = append(args, "--message", message)
-	}
-
-	cmd := exec.CommandContext(ctx, exePath, args...)
-	cmd.Stderr = os.Stderr
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("PIN prompt cancelled or failed: %w", err)
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
 func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, error) {
 	log := zerowrap.FromCtx(ctx)
 
@@ -143,21 +115,9 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 	}
 
 	if authResult.RequiresPIN {
-		isTTY := term.IsTerminal(int(os.Stdin.Fd()))
+		prompt := PINPromptFromCtx(ctx)
 
-		readPIN := func(errorMode bool, message string) (string, error) {
-			if isTTY {
-				if message != "" {
-					fmt.Fprintln(os.Stderr, message)
-				} else if errorMode {
-					fmt.Fprintln(os.Stderr, "Incorrect PIN, please try again.")
-				}
-				return ReadPassword("Unlock PIN: ")
-			}
-			return execPINPrompt(ctx, errorMode, message)
-		}
-
-		pin, pinErr := readPIN(false, "")
+		pin, pinErr := prompt.PromptForPIN(ctx, false, "")
 		if pinErr != nil {
 			_ = clientApp.Close(ctx)
 			return nil, fmt.Errorf("failed to read PIN: %w", pinErr)
@@ -179,7 +139,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 
 			switch st.Code() {
 			case codes.PermissionDenied:
-				pin, pinErr = readPIN(true, "")
+				pin, pinErr = prompt.PromptForPIN(ctx, true, "")
 			case codes.Unauthenticated:
 				var authErr error
 				authResult, authErr = clientApp.Vault.Authenticate(ctx)
@@ -187,9 +147,9 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 					err = fmt.Errorf("re-authentication failed: %w", authErr)
 					break retryLoop
 				}
-				pin, pinErr = readPIN(true, "Session expired, enter PIN again")
+				pin, pinErr = prompt.PromptForPIN(ctx, true, "Session expired, enter PIN again")
 			case codes.ResourceExhausted:
-				pin, pinErr = readPIN(true, st.Message())
+				pin, pinErr = prompt.PromptForPIN(ctx, true, st.Message())
 			default:
 				pinErr = err
 			}
@@ -202,7 +162,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 
 		if err != nil {
 			_ = clientApp.Close(ctx)
-			if !isTTY {
+			if !prompt.IsTTY() {
 				SendNotification(ctx, "PIN unlock failed")
 			}
 			return nil, log.WrapErr(err, "unlock failed")
