@@ -119,10 +119,8 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 		if layershell.Available() && layershell.IsSupported() {
 			layershell.InitForWindow(&window.Window)
 			layershell.SetLayer(&window.Window, layershell.LayerOverlayValue)
-			layershell.SetAnchor(&window.Window, layershell.EdgeBottomValue, true)
 			layershell.SetKeyboardMode(&window.Window, layershell.KeyboardModeExclusiveValue)
 			layershell.SetExclusiveZone(&window.Window, 0)
-			layershell.SetMargin(&window.Window, layershell.EdgeBottomValue, 40)
 			ns := "sekeve-pin"
 			layershell.SetNamespace(&window.Window, &ns)
 		}

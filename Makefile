@@ -9,6 +9,8 @@ build:
 
 install:
 	go install -ldflags "$(LDFLAGS)" ./cmd/sekeve
+	@echo "Note: for layer-shell overlay support, create a wrapper:"
+	@echo '  echo '\''#!/bin/sh\nLD_PRELOAD=/usr/lib/libgtk4-layer-shell.so.0 exec sekeve "$$@"'\'' > ~/.local/bin/sekeve-gui && chmod +x ~/.local/bin/sekeve-gui'
 
 proto:
 	cd proto && buf generate
