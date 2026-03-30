@@ -16,7 +16,7 @@ import (
 )
 
 // Omnibox is the main container widget with L1/L2 tabs, a search view,
-// and keyboard routing.
+// an add view, and keyboard routing.
 type Omnibox struct {
 	Root *gtk.Box
 
@@ -27,6 +27,8 @@ type Omnibox struct {
 	modeBar     *widget.TabBar
 	categoryBar *widget.TabBar
 	search      *SearchView
+	addView     *AddView
+	currentMode int // 0=search, 1=add
 
 	ring      *focusring.Ring
 	callbacks []interface{}
@@ -54,8 +56,7 @@ func New(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *Omnibox {
 		ActiveClass: "sekeve-tab-active",
 		BaseClass:   "sekeve-tab",
 		OnChange: func(index int) {
-			// Add mode is Task 12 — for now only search is functional.
-			_ = index
+			o.setMode(index)
 		},
 	})
 	if o.modeBar.Box != nil {
@@ -94,6 +95,15 @@ func New(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *Omnibox {
 		root.Append(&o.search.Root.Widget)
 	}
 
+	// --- Add view ---
+	o.addView = NewAddView(ctx, cfg, func() {
+		o.switchToSearch()
+	})
+	if o.addView.Root != nil {
+		o.addView.Hide()
+		root.Append(&o.addView.Root.Widget)
+	}
+
 	// --- Footer hints ---
 	footer := buildFooter()
 	if footer != nil {
@@ -103,6 +113,11 @@ func New(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *Omnibox {
 	// --- Focus ring ---
 	o.ring = focusring.New()
 	o.rebuildFocusRing()
+
+	// If configured to start in Add mode, switch now.
+	if cfg.Mode == port.OmniboxModeAdd {
+		o.modeBar.SetActive(1)
+	}
 
 	return o
 }
@@ -150,18 +165,24 @@ func (o *Omnibox) AttachKeyController(window *gtk.Window) {
 			}
 
 		case gdk.KEY_Up:
-			o.search.SelectPrev()
-			return true
-		case gdk.KEY_Down:
-			o.search.SelectNext()
-			return true
-		case gdk.KEY_Return:
-			if ctrl {
-				// Ctrl+Enter → detail view (Task 13 stub)
+			if o.currentMode == 0 {
+				o.search.SelectPrev()
 				return true
 			}
-			o.search.CopySelected()
-			return true
+		case gdk.KEY_Down:
+			if o.currentMode == 0 {
+				o.search.SelectNext()
+				return true
+			}
+		case gdk.KEY_Return:
+			if o.currentMode == 0 {
+				if ctrl {
+					// Ctrl+Enter → detail view (Task 13 stub)
+					return true
+				}
+				o.search.CopySelected()
+				return true
+			}
 		}
 
 		return false
@@ -179,8 +200,13 @@ func (o *Omnibox) GrabFocus() {
 	}
 }
 
-// handleEscape clears search text if non-empty, otherwise closes the overlay.
+// handleEscape in add mode switches back to search; in search mode
+// clears query text if non-empty, otherwise closes the overlay.
 func (o *Omnibox) handleEscape() bool {
+	if o.currentMode == 1 {
+		o.switchToSearch()
+		return true
+	}
 	if o.search != nil && o.search.HasQuery() {
 		o.search.ClearQuery()
 		return true
@@ -191,20 +217,66 @@ func (o *Omnibox) handleEscape() bool {
 	return true
 }
 
-// onCategoryChange reloads the search results for the new category.
+// onCategoryChange reloads the search results for the new category,
+// and rebuilds the add form if currently in add mode.
 func (o *Omnibox) onCategoryChange(index int) {
 	cat := indexToCategory(index)
 	o.search.SetCategory(cat)
+	if o.currentMode == 1 && o.addView != nil {
+		o.addView.SetCategory(cat)
+		o.rebuildFocusRing()
+	}
+}
+
+// setMode switches between search (0) and add (1) modes.
+func (o *Omnibox) setMode(index int) {
+	o.currentMode = index
+	if index == 0 {
+		// Search mode.
+		if o.addView != nil {
+			o.addView.Hide()
+		}
+		if o.search != nil && o.search.Root != nil {
+			o.search.Root.SetVisible(true)
+		}
+		o.rebuildFocusRing()
+		o.search.GrabFocus()
+	} else {
+		// Add mode.
+		if o.search != nil && o.search.Root != nil {
+			o.search.Root.SetVisible(false)
+		}
+		if o.addView != nil {
+			cat := indexToCategory(o.categoryBar.Active())
+			o.addView.SetCategory(cat)
+			o.addView.Show()
+		}
+		o.rebuildFocusRing()
+	}
+}
+
+// switchToSearch resets the mode bar to search and switches views.
+// Called by the AddView after save or cancel.
+func (o *Omnibox) switchToSearch() {
+	o.modeBar.SetActive(0)
+	// Reload search entries to pick up any newly added entry.
+	if o.search != nil {
+		go o.search.loadEntries()
+	}
 }
 
 // rebuildFocusRing updates the focus ring with current focusable widgets.
 func (o *Omnibox) rebuildFocusRing() {
 	var widgets []focusring.Focusable
-	if o.search != nil && o.search.entry != nil {
-		widgets = append(widgets, &focusableWidget{&o.search.entry.Widget})
-	}
-	if o.search != nil && o.search.listBox != nil {
-		widgets = append(widgets, &focusableWidget{&o.search.listBox.Widget})
+	if o.currentMode == 1 && o.addView != nil {
+		widgets = append(widgets, o.addView.Focusables()...)
+	} else {
+		if o.search != nil && o.search.entry != nil {
+			widgets = append(widgets, &focusableWidget{&o.search.entry.Widget})
+		}
+		if o.search != nil && o.search.listBox != nil {
+			widgets = append(widgets, &focusableWidget{&o.search.listBox.Widget})
+		}
 	}
 	o.ring.SetWidgets(widgets...)
 }
