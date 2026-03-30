@@ -118,7 +118,7 @@ List all entries in a picker-friendly format, then copy the selected value to cl
 sel=$(sekeve dmenu --list | fuzzel --dmenu --with-nth=1 --accept-nth=2) && sekeve dmenu --copy "$sel"
 ```
 
-When PIN is configured, use `--ensure-session` to authenticate before the picker opens (see [Niri setup](#niri--wayland-setup) below).
+When PIN is configured, use `--ensure-session` to authenticate before the picker opens (see [PIN unlock](#pin-unlock) below).
 
 Logins copy the password, secrets copy the value, notes copy the full content.
 
@@ -145,21 +145,7 @@ sekeve pin change    # change (requires current PIN)
 
 The PIN is hashed server-side with argon2id. It cannot be removed once set. Failed attempts trigger exponential backoff (2s up to 60s).
 
-In a terminal, the PIN is prompted interactively. When launched from a desktop shortcut with no TTY (e.g., niri/sway hotkey), a minimal GUI prompt appears automatically.
-
-### Niri / Wayland setup
-
-Add a window rule so the PIN prompt floats instead of tiling:
-
-```kdl
-// ~/.config/niri/config.kdl
-window-rule {
-    match app-id="dev.bnema.sekeve"
-    open-floating true
-    default-column-width { fixed 350; }
-    default-window-height { fixed 68; }
-}
-```
+In a terminal, the PIN is prompted interactively. When launched from a desktop shortcut with no TTY (e.g., niri/sway hotkey), a GTK4 overlay prompt appears automatically via layer-shell. No window rules are needed.
 
 Use `--ensure-session` in the keybinding so the PIN prompt appears before fuzzel:
 

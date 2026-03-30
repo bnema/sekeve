@@ -3,7 +3,7 @@
 export GOEXPERIMENT := runtimesecret
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-LDFLAGS := -X github.com/bnema/sekeve/internal/version.Version=$(VERSION) -X gioui.org/app.ID=dev.bnema.sekeve
+LDFLAGS := -X github.com/bnema/sekeve/internal/version.Version=$(VERSION)
 build:
 	go build -ldflags "$(LDFLAGS)" -o bin/sekeve ./cmd/sekeve
 
