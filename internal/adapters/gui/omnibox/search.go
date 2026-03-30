@@ -181,6 +181,38 @@ func (sv *SearchView) SelectPrev() {
 	}
 }
 
+// SelectedEntry returns the envelope for the currently selected row, or nil.
+func (sv *SearchView) SelectedEntry() *entity.Envelope {
+	if sv.listBox == nil {
+		return nil
+	}
+	sel := sv.listBox.GetSelectedRow()
+	if sel == nil {
+		return nil
+	}
+
+	listIndex := sel.GetIndex()
+
+	sv.mu.Lock()
+	entries := sv.entries
+	matches := sv.matches
+	sv.mu.Unlock()
+
+	var entryIdx int
+	if matches != nil {
+		if listIndex < 0 || listIndex >= len(matches) {
+			return nil
+		}
+		entryIdx = matches[listIndex].Index
+	} else {
+		entryIdx = listIndex
+	}
+	if entryIdx < 0 || entryIdx >= len(entries) {
+		return nil
+	}
+	return entries[entryIdx]
+}
+
 // CopySelected copies the value of the currently selected entry.
 func (sv *SearchView) CopySelected() {
 	if sv.listBox == nil {
