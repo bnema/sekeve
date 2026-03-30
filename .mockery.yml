@@ -12,3 +12,4 @@ packages:
       CryptoPort:
       SyncPort:
       ConfigPort:
+      PINPromptPort:
