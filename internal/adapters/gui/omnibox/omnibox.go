@@ -237,11 +237,7 @@ func (o *Omnibox) GrabFocus() {
 // handleEscape in detail mode or add mode switches back to search;
 // in search mode clears query text if non-empty, otherwise closes the overlay.
 func (o *Omnibox) handleEscape() bool {
-	if o.currentMode == 2 {
-		o.switchToSearch()
-		return true
-	}
-	if o.currentMode == 1 {
+	if o.currentMode != 0 {
 		o.switchToSearch()
 		return true
 	}
@@ -309,8 +305,8 @@ func (o *Omnibox) setMode(index int) {
 // switchToSearch resets the mode bar to search and switches views.
 // Called by the AddView/DetailView after save or cancel.
 func (o *Omnibox) switchToSearch() {
-	// SetActive triggers setMode(0) which handles visibility.
-	o.modeBar.SetActive(0)
+	o.modeBar.SetActive(0) // update tab bar CSS
+	o.setMode(0)           // always apply mode change (handles visibility)
 	// Reload search entries to pick up any newly added or updated entry.
 	if o.search != nil {
 		go o.search.loadEntries()
@@ -462,6 +458,17 @@ func buildFooter() *gtk.Box {
 		footerBox.Append(&hintBox.Widget)
 	}
 	return footerBox
+}
+
+// clearBoxChildren removes all children from a GTK Box.
+func clearBoxChildren(box *gtk.Box) {
+	for {
+		child := box.GetFirstChild()
+		if child == nil {
+			break
+		}
+		box.Remove(child)
+	}
 }
 
 // categoryToIndex maps an entity.EntryType to a tab index.

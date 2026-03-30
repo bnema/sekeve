@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/bnema/puregotk/v4/glib"
-	"github.com/bnema/puregotk/v4/gtk"
 )
 
 // RetainCallback appends cb to the slice to prevent Go GC from collecting
@@ -13,24 +12,10 @@ func RetainCallback(callbacks *[]interface{}, cb interface{}) {
 	*callbacks = append(*callbacks, cb)
 }
 
-// IdleAdd schedules fn to run on the GTK main thread via glib.IdleAdd.
-func IdleAdd(fn func()) {
-	var cb glib.SourceFunc = func(uintptr) bool {
-		fn()
-		return false
-	}
-	glib.IdleAdd(&cb, 0)
-}
-
 // IdleAddOnce schedules fn to run once on the GTK main thread.
 func IdleAddOnce(fn func()) {
 	onceFn := glib.SourceOnceFunc(func(uintptr) { fn() })
 	glib.IdleAddOnce(&onceFn, 0)
-}
-
-// LoadCSS loads a CSS string into a CssProvider.
-func LoadCSS(provider *gtk.CssProvider, css string) {
-	provider.LoadFromString(css)
 }
 
 // SafeNewWidget creates a widget and returns an error if the constructor returns nil.

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 
@@ -76,7 +75,7 @@ Examples:
 				notes = prompt("Notes (optional)", "")
 			}
 
-			name := deriveLoginName(site, username)
+			name := entity.DeriveLoginName(site, username)
 
 			login := entity.Login{
 				Site:     site,
@@ -126,39 +125,6 @@ Examples:
 	cmd.Flags().StringVar(&password, "password", "", "Password")
 	cmd.Flags().StringVar(&notes, "notes", "", "Notes")
 	return cmd
-}
-
-func deriveLoginName(site, username string) string {
-	domain := extractDomain(site)
-	if domain == "" {
-		domain = site
-	}
-	if username != "" {
-		return fmt.Sprintf("%s (%s)", domain, username)
-	}
-	return domain
-}
-
-func extractDomain(raw string) string {
-	if raw == "" {
-		return ""
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return raw
-	}
-	host := u.Host
-	if host == "" {
-		u2, err := url.Parse("https://" + raw)
-		if err != nil {
-			return raw
-		}
-		host = u2.Host
-	}
-	if host == "" {
-		return raw
-	}
-	return host
 }
 
 func newAddSecretCmd() *cobra.Command {

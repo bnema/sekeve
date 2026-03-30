@@ -10,11 +10,12 @@ import (
 
 // TabBar is a horizontal row of toggle buttons that acts as a tab strip.
 type TabBar struct {
-	Box       *gtk.Box
-	buttons   []*gtk.Button
-	active    int
-	onChange  func(index int)
-	callbacks []interface{}
+	Box         *gtk.Box
+	buttons     []*gtk.Button
+	active      int
+	activeClass string // CSS class for the active tab
+	onChange    func(index int)
+	callbacks   []interface{}
 }
 
 // TabBarConfig holds configuration for creating a TabBar.
@@ -32,9 +33,10 @@ func NewTabBar(cfg TabBarConfig) *TabBar {
 	})
 
 	t := &TabBar{
-		Box:      box,
-		active:   0,
-		onChange: cfg.OnChange,
+		Box:         box,
+		active:      0,
+		activeClass: cfg.ActiveClass,
+		onChange:    cfg.OnChange,
 	}
 
 	for i, label := range cfg.Labels {
@@ -69,15 +71,10 @@ func (t *TabBar) SetActive(index int) {
 	if index < 0 || index >= len(t.buttons) {
 		return
 	}
-	if index == t.active {
-		return
-	}
 
 	// Remove active class from old tab, add to new.
-	t.buttons[t.active].RemoveCssClass("sekeve-tab-active")
-	t.buttons[t.active].RemoveCssClass("sekeve-category-active")
-	t.buttons[index].AddCssClass("sekeve-tab-active")
-	t.buttons[index].AddCssClass("sekeve-category-active")
+	t.buttons[t.active].RemoveCssClass(t.activeClass)
+	t.buttons[index].AddCssClass(t.activeClass)
 
 	t.active = index
 	if t.onChange != nil {

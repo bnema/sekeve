@@ -100,7 +100,7 @@ func NewEditCmd() *cobra.Command {
 					}
 					env.Payload = newPayload
 					env.Meta = map[string]string{"username": login.Username, "site": login.Site}
-					env.Name = deriveLoginName(login.Site, login.Username)
+					env.Name = entity.DeriveLoginName(login.Site, login.Username)
 
 				case entity.EntryTypeSecret:
 					var secret entity.Secret

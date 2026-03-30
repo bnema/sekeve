@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/gui/widget"
 	"github.com/bnema/sekeve/internal/domain/entity"
 	"github.com/bnema/sekeve/internal/port"
+	"github.com/bnema/sekeve/pkg/clipboard"
 	"github.com/bnema/sekeve/pkg/focusring"
 	"github.com/bnema/sekeve/pkg/gtkutil"
 )
@@ -145,7 +146,7 @@ func (dv *DetailView) buildForm(plaintext []byte) {
 	if dv.Root == nil {
 		return
 	}
-	dv.clearRoot()
+	clearBoxChildren(dv.Root)
 	dv.resetFields()
 
 	switch dv.kind {
@@ -367,7 +368,7 @@ func (dv *DetailView) newCopyButton(getValue func() string) *gtk.Button {
 		clickCb := func(_ gtk.Button) {
 			value := getValue()
 			if value != "" {
-				go copyToClipboard(ctx, value)
+				go clipboard.Copy(ctx, value)
 			}
 		}
 		gtkutil.RetainCallback(&dv.callbacks, clickCb)
@@ -400,22 +401,9 @@ func (dv *DetailView) appendFieldRow(fieldBox *gtk.Box, copyBtn *gtk.Button) {
 	dv.Root.Append(&row.Widget)
 }
 
-// clearRoot removes all children from the root box.
-func (dv *DetailView) clearRoot() {
-	if dv.Root == nil {
-		return
-	}
-	for {
-		child := dv.Root.GetFirstChild()
-		if child == nil {
-			break
-		}
-		dv.Root.Remove(child)
-	}
-}
-
-// resetFields zeroes all field pointers.
+// resetFields zeroes all field pointers and resets retained callbacks.
 func (dv *DetailView) resetFields() {
+	dv.callbacks = dv.callbacks[:0]
 	dv.loginSite = nil
 	dv.loginSiteCopy = nil
 	dv.loginUsername = nil
@@ -510,7 +498,7 @@ func (dv *DetailView) collectLoginDetail() (*entity.Envelope, bool) {
 
 	env := &entity.Envelope{
 		ID:        dv.env.ID,
-		Name:      deriveLoginName(site, username),
+		Name:      entity.DeriveLoginName(site, username),
 		Type:      entity.EntryTypeLogin,
 		Meta:      map[string]string{"username": username, "site": site},
 		Payload:   payload,

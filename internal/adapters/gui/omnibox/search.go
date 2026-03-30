@@ -8,13 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 	"sync"
+	"time"
 
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/bnema/sekeve/internal/domain/entity"
 	"github.com/bnema/sekeve/internal/port"
+	"github.com/bnema/sekeve/pkg/clipboard"
 	"github.com/bnema/sekeve/pkg/fuzzysearch"
 	"github.com/bnema/sekeve/pkg/gtkutil"
 )
@@ -33,12 +33,17 @@ type SearchView struct {
 	quitFn   func()
 	category entity.EntryType
 
-	// Cached entries and current matches for the active category.
-	mu        sync.Mutex
-	entries   []*entity.Envelope
-	names     []string // parallel to entries, for fuzzy search
-	matches   []fuzzysearch.Match
-	callbacks []interface{}
+	// allEntries holds the full unfiltered list fetched from the server.
+	// entries/names are the category-filtered subset used for display.
+	mu         sync.Mutex
+	allEntries []*entity.Envelope
+	allNames   []string
+	entries    []*entity.Envelope
+	names      []string // parallel to entries, for fuzzy search
+	matches    []fuzzysearch.Match
+
+	debounceTimer *time.Timer
+	callbacks     []interface{}
 }
 
 // NewSearchView creates the search entry and result list.
@@ -65,7 +70,14 @@ func NewSearchView(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *
 		sv.entry.SetHexpand(true)
 
 		changedCb := func(_ gtk.SearchEntry) {
-			sv.onSearchChanged()
+			if sv.debounceTimer != nil {
+				sv.debounceTimer.Stop()
+			}
+			sv.debounceTimer = time.AfterFunc(100*time.Millisecond, func() {
+				gtkutil.IdleAddOnce(func() {
+					sv.onSearchChanged()
+				})
+			})
 		}
 		gtkutil.RetainCallback(&sv.callbacks, changedCb)
 		sv.entry.ConnectSearchChanged(&changedCb)
@@ -140,10 +152,11 @@ func (sv *SearchView) ClearQuery() {
 	}
 }
 
-// SetCategory changes the active category and reloads entries.
+// SetCategory changes the active category and filters cached entries.
 func (sv *SearchView) SetCategory(cat entity.EntryType) {
 	sv.category = cat
-	go sv.loadEntries()
+	sv.filterByCategory()
+	sv.onSearchChanged()
 }
 
 // SelectNext moves selection down one row in the list.
@@ -228,29 +241,53 @@ func (sv *SearchView) CopySelected() {
 	sv.copyEntryAtIndex(sel.GetIndex())
 }
 
-// loadEntries fetches entries for the current category and populates the list.
+// loadEntries fetches all entries and filters by the current category.
 func (sv *SearchView) loadEntries() {
 	if sv.cfg.ListEntries == nil {
 		return
 	}
 
-	entries, err := sv.cfg.ListEntries(sv.ctx, sv.category)
+	entries, err := sv.cfg.ListEntries(sv.ctx, entity.EntryTypeUnspecified)
 	if err != nil {
 		return
 	}
 
 	sv.mu.Lock()
-	sv.entries = entries
-	sv.names = make([]string, len(entries))
+	sv.allEntries = entries
+	sv.allNames = make([]string, len(entries))
 	for i, e := range entries {
-		sv.names[i] = e.Name
+		sv.allNames[i] = e.Name
 	}
 	sv.mu.Unlock()
 
-	// Update UI on the GTK thread.
+	// Filter and update UI on the GTK thread.
 	gtkutil.IdleAddOnce(func() {
+		sv.filterByCategory()
 		sv.onSearchChanged()
 	})
+}
+
+// filterByCategory rebuilds entries/names from allEntries for the current category.
+func (sv *SearchView) filterByCategory() {
+	sv.mu.Lock()
+	defer sv.mu.Unlock()
+
+	if sv.category == entity.EntryTypeUnspecified {
+		sv.entries = sv.allEntries
+		sv.names = sv.allNames
+		return
+	}
+
+	filtered := make([]*entity.Envelope, 0, len(sv.allEntries))
+	filteredNames := make([]string, 0, len(sv.allEntries))
+	for i, e := range sv.allEntries {
+		if e.Type == sv.category {
+			filtered = append(filtered, e)
+			filteredNames = append(filteredNames, sv.allNames[i])
+		}
+	}
+	sv.entries = filtered
+	sv.names = filteredNames
 }
 
 // onSearchChanged filters entries and updates the list box.
@@ -406,7 +443,9 @@ func (sv *SearchView) copyEntryAtIndex(listIndex int) {
 			if value == "" {
 				return
 			}
-			copyToClipboard(sv.ctx, value)
+			if err := clipboard.Copy(sv.ctx, value); err != nil {
+				fmt.Fprintf(os.Stderr, "sekeve: %v\n", err)
+			}
 		})
 
 		// Close overlay on the GTK thread.
@@ -443,23 +482,6 @@ func extractMainValue(t entity.EntryType, plaintext []byte) string {
 	default:
 		return string(plaintext)
 	}
-}
-
-// copyToClipboard writes value to the system clipboard via wl-copy or xclip.
-func copyToClipboard(ctx context.Context, value string) {
-	cmd, name := clipboardCmd(ctx)
-	cmd.Stdin = strings.NewReader(value)
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "sekeve: %s failed: %v\n", name, err)
-	}
-}
-
-func clipboardCmd(ctx context.Context) (*exec.Cmd, string) {
-	if os.Getenv("WAYLAND_DISPLAY") != "" {
-		return exec.CommandContext(ctx, "wl-copy"), "wl-copy"
-	}
-	return exec.CommandContext(ctx, "xclip", "-selection", "clipboard"), "xclip"
 }
 
 func typeIcon(t entity.EntryType) string {

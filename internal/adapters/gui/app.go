@@ -37,19 +37,10 @@ type GUIAdapter struct {
 
 const stateTTL = 5 * time.Minute
 
-type viewState int
-
-const (
-	viewList viewState = iota
-	viewDetail
-)
-
 type omniboxState struct {
 	Mode     port.OmniboxMode
 	Category int // entity.EntryType as int
 	Query    string
-	View     viewState
-	DetailID string
 }
 
 var (
@@ -209,7 +200,7 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 
 func setupCSS() {
 	cssProvider := gtk.NewCssProvider()
-	gtkutil.LoadCSS(cssProvider, emeraldCSS)
+	cssProvider.LoadFromString(emeraldCSS)
 	if display := gdk.DisplayGetDefault(); display != nil {
 		gtk.StyleContextAddProviderForDisplay(display, cssProvider, 800)
 	}

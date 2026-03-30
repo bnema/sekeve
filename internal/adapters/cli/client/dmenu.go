@@ -1,16 +1,15 @@
 package client
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/cli/styles"
 	"github.com/bnema/sekeve/internal/domain/entity"
+	"github.com/bnema/sekeve/pkg/clipboard"
 	"github.com/bnema/zerowrap"
 	"github.com/spf13/cobra"
 )
@@ -112,15 +111,12 @@ func NewDmenuCmd() *cobra.Command {
 					}
 
 					log.Debug().Int("len", len(value)).Msg("decrypted, copying to clipboard")
-					clipCmd, clipName := clipboardCmd(ctx)
-					clipCmd.Stdin = strings.NewReader(value)
-					clipCmd.Stderr = os.Stderr
-					if err := clipCmd.Run(); err != nil {
-						copyErr = fmt.Errorf("%s failed: %w", clipName, err)
-						log.Error().Err(err).Str("tool", clipName).Msg("clipboard copy failed")
+					if err := clipboard.Copy(ctx, value); err != nil {
+						copyErr = err
+						log.Error().Err(err).Msg("clipboard copy failed")
 						return
 					}
-					log.Debug().Str("tool", clipName).Msg("clipboard copy succeeded")
+					log.Debug().Msg("clipboard copy succeeded")
 					cliconfig.SendNotification(ctx, "Password copied to clipboard")
 				})
 
@@ -159,16 +155,6 @@ func formatDmenuLine(e *entity.Envelope) string {
 	default:
 		return fmt.Sprintf("%s\t%s", e.Name, e.ID)
 	}
-}
-
-// clipboardCmd returns an exec.Cmd that writes stdin to the system clipboard,
-// along with the tool name for logging. Prefers wl-copy on Wayland, falls back
-// to xclip on X11.
-func clipboardCmd(ctx context.Context) (*exec.Cmd, string) {
-	if os.Getenv("WAYLAND_DISPLAY") != "" {
-		return exec.CommandContext(ctx, "wl-copy"), "wl-copy"
-	}
-	return exec.CommandContext(ctx, "xclip", "-selection", "clipboard"), "xclip"
 }
 
 func parseDmenuSelection(selection string) string {

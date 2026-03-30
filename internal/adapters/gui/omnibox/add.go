@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/bnema/sekeve/internal/adapters/gui/widget"
@@ -151,7 +150,10 @@ func (av *AddView) buildForm() {
 	}
 
 	// Clear previous children.
-	av.clearRoot()
+	clearBoxChildren(av.Root)
+
+	// Reset retained callbacks to avoid leaks on form rebuilds.
+	av.callbacks = av.callbacks[:0]
 
 	// Reset field pointers.
 	av.loginSite = nil
@@ -281,20 +283,6 @@ func (av *AddView) buildButtons() {
 	av.Root.Append(&btnBox.Widget)
 }
 
-// clearRoot removes all children from the root box.
-func (av *AddView) clearRoot() {
-	if av.Root == nil {
-		return
-	}
-	for {
-		child := av.Root.GetFirstChild()
-		if child == nil {
-			break
-		}
-		av.Root.Remove(child)
-	}
-}
-
 func (av *AddView) doCancel() {
 	if av.onDone != nil {
 		av.onDone()
@@ -361,7 +349,7 @@ func (av *AddView) collectLogin() (*entity.Envelope, bool) {
 	}
 
 	env := &entity.Envelope{
-		Name:    deriveLoginName(site, username),
+		Name:    entity.DeriveLoginName(site, username),
 		Type:    entity.EntryTypeLogin,
 		Meta:    map[string]string{"username": username, "site": site},
 		Payload: payload,
@@ -432,38 +420,4 @@ func getTextViewContent(tv *gtk.TextView) string {
 	buf.GetStartIter(&start)
 	buf.GetEndIter(&end)
 	return buf.GetText(&start, &end, false)
-}
-
-// deriveLoginName creates a display name from site and username.
-func deriveLoginName(site, username string) string {
-	domain := extractDomain(site)
-	if domain == "" {
-		domain = site
-	}
-	if username != "" {
-		return fmt.Sprintf("%s (%s)", domain, username)
-	}
-	return domain
-}
-
-// extractDomain parses a URL or hostname and returns the host portion.
-func extractDomain(raw string) string {
-	if raw == "" {
-		return ""
-	}
-	u, err := url.Parse(raw)
-	if err != nil {
-		return raw
-	}
-	host := u.Host
-	if host == "" {
-		u2, _ := url.Parse("https://" + raw)
-		if u2 != nil {
-			host = u2.Host
-		}
-	}
-	if host == "" {
-		return raw
-	}
-	return host
 }
