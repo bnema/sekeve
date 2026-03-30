@@ -7,6 +7,7 @@ package mocks
 import (
 	"context"
 
+	"github.com/bnema/sekeve/internal/port"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -82,29 +83,20 @@ func (_c *MockPINPromptPort_IsTTY_Call) RunAndReturn(run func() bool) *MockPINPr
 }
 
 // PromptForPIN provides a mock function for the type MockPINPromptPort
-func (_mock *MockPINPromptPort) PromptForPIN(ctx context.Context, errorMode bool, message string) (string, error) {
-	ret := _mock.Called(ctx, errorMode, message)
+func (_mock *MockPINPromptPort) PromptForPIN(ctx context.Context, validate port.PINValidateFunc) error {
+	ret := _mock.Called(ctx, validate)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PromptForPIN")
 	}
 
-	var r0 string
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, bool, string) (string, error)); ok {
-		return returnFunc(ctx, errorMode, message)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, bool, string) string); ok {
-		r0 = returnFunc(ctx, errorMode, message)
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, port.PINValidateFunc) error); ok {
+		r0 = returnFunc(ctx, validate)
 	} else {
-		r0 = ret.Get(0).(string)
+		r0 = ret.Error(0)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, bool, string) error); ok {
-		r1 = returnFunc(ctx, errorMode, message)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
+	return r0
 }
 
 // MockPINPromptPort_PromptForPIN_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PromptForPIN'
@@ -114,41 +106,35 @@ type MockPINPromptPort_PromptForPIN_Call struct {
 
 // PromptForPIN is a helper method to define mock.On call
 //   - ctx context.Context
-//   - errorMode bool
-//   - message string
-func (_e *MockPINPromptPort_Expecter) PromptForPIN(ctx interface{}, errorMode interface{}, message interface{}) *MockPINPromptPort_PromptForPIN_Call {
-	return &MockPINPromptPort_PromptForPIN_Call{Call: _e.mock.On("PromptForPIN", ctx, errorMode, message)}
+//   - validate port.PINValidateFunc
+func (_e *MockPINPromptPort_Expecter) PromptForPIN(ctx interface{}, validate interface{}) *MockPINPromptPort_PromptForPIN_Call {
+	return &MockPINPromptPort_PromptForPIN_Call{Call: _e.mock.On("PromptForPIN", ctx, validate)}
 }
 
-func (_c *MockPINPromptPort_PromptForPIN_Call) Run(run func(ctx context.Context, errorMode bool, message string)) *MockPINPromptPort_PromptForPIN_Call {
+func (_c *MockPINPromptPort_PromptForPIN_Call) Run(run func(ctx context.Context, validate port.PINValidateFunc)) *MockPINPromptPort_PromptForPIN_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 bool
+		var arg1 port.PINValidateFunc
 		if args[1] != nil {
-			arg1 = args[1].(bool)
-		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
+			arg1 = args[1].(port.PINValidateFunc)
 		}
 		run(
 			arg0,
 			arg1,
-			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *MockPINPromptPort_PromptForPIN_Call) Return(s string, err error) *MockPINPromptPort_PromptForPIN_Call {
-	_c.Call.Return(s, err)
+func (_c *MockPINPromptPort_PromptForPIN_Call) Return(err error) *MockPINPromptPort_PromptForPIN_Call {
+	_c.Call.Return(err)
 	return _c
 }
 
-func (_c *MockPINPromptPort_PromptForPIN_Call) RunAndReturn(run func(ctx context.Context, errorMode bool, message string) (string, error)) *MockPINPromptPort_PromptForPIN_Call {
+func (_c *MockPINPromptPort_PromptForPIN_Call) RunAndReturn(run func(ctx context.Context, validate port.PINValidateFunc) error) *MockPINPromptPort_PromptForPIN_Call {
 	_c.Call.Return(run)
 	return _c
 }

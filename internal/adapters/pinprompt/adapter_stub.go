@@ -26,6 +26,6 @@ func NewPINPromptAdapter() *PINPromptStubAdapter {
 
 func (a *PINPromptStubAdapter) IsTTY() bool { return a.isTTY }
 
-func (a *PINPromptStubAdapter) PromptForPIN(_ context.Context, errorMode bool, message string) (string, error) {
-	return promptTTY(errorMode, message)
+func (a *PINPromptStubAdapter) PromptForPIN(ctx context.Context, validate port.PINValidateFunc) error {
+	return promptTTY(ctx, validate)
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime/secret"
+	"sync"
 	"time"
 
 	"github.com/bnema/sekeve/internal/app"
@@ -120,57 +121,58 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		prompt := PINPromptFromCtx(ctx)
 		var unlockErr error
 
-		secret.Do(func() {
-			pin, pinErr := prompt.PromptForPIN(ctx, false, "")
-			if pinErr != nil {
-				unlockErr = pinErr
-				return
-			}
+		var mu sync.Mutex // protects attempts and authResult across goroutines
+		attempts := 0
+		validate := func(vctx context.Context, pin string) error {
+			// Wrap in secret.Do because this callback may be invoked from a
+			// goroutine spawned by the GUI adapter (GTK event loop), which
+			// is not covered by the caller's secret.Do scope.
+			var result error
+			secret.Do(func() {
+				mu.Lock()
+				defer mu.Unlock()
 
-			var token string
-			var expiresAt time.Time
-		retryLoop:
-			for attempts := 0; attempts < 3; attempts++ {
-				token, expiresAt, err = clientApp.Sync.Unlock(ctx, authResult.UnlockTicket, pin)
-				if err == nil {
-					break
+				attempts++
+				token, expiresAt, vErr := clientApp.Sync.Unlock(vctx, authResult.UnlockTicket, pin)
+				if vErr == nil {
+					cacheSession(token, expiresAt)
+					return
 				}
 
-				st, ok := status.FromError(err)
+				st, ok := status.FromError(vErr)
 				if !ok {
-					break
+					result = &port.PINFatalError{Err: vErr}
+					return
 				}
 
 				switch st.Code() {
 				case codes.PermissionDenied:
-					pin, pinErr = prompt.PromptForPIN(ctx, true, "")
-				case codes.Unauthenticated:
-					var authErr error
-					authResult, authErr = clientApp.Vault.Authenticate(ctx)
-					if authErr != nil {
-						err = fmt.Errorf("re-authentication failed: %w", authErr)
-						break retryLoop
+					if attempts >= 3 {
+						result = &port.PINFatalError{Err: fmt.Errorf("too many failed PIN attempts")}
+						return
 					}
-					pin, pinErr = prompt.PromptForPIN(ctx, true, "Session expired, enter PIN again")
+					// User-facing message, intentionally capitalized.
+					result = fmt.Errorf("%s", port.DefaultPINError)
+				case codes.Unauthenticated:
+					authRes, authErr := clientApp.Vault.Authenticate(vctx)
+					if authErr != nil {
+						result = &port.PINFatalError{Err: fmt.Errorf("re-authentication failed: %w", authErr)}
+						return
+					}
+					authResult = authRes
+					attempts = 0
+					// User-facing message, intentionally capitalized.
+					result = fmt.Errorf("Session expired, enter PIN again")
 				case codes.ResourceExhausted:
-					pin, pinErr = prompt.PromptForPIN(ctx, true, st.Message())
+					result = fmt.Errorf("%s", st.Message())
 				default:
-					pinErr = err
+					result = &port.PINFatalError{Err: vErr}
 				}
+			})
+			return result
+		}
 
-				if pinErr != nil {
-					err = pinErr
-					break
-				}
-			}
-
-			if err != nil {
-				unlockErr = err
-				return
-			}
-
-			cacheSession(token, expiresAt)
-		})
+		unlockErr = prompt.PromptForPIN(ctx, validate)
 
 		if unlockErr != nil {
 			_ = clientApp.Close(ctx)

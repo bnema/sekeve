@@ -4,10 +4,13 @@ package pinprompt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
 	"sync"
+	"time"
+	"unicode/utf8"
 
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gio"
@@ -56,21 +59,19 @@ func (a *PINPromptAdapter) IsTTY() bool { return a.isTTY }
 const maxMessageLen = 200
 
 // PromptForPIN asks the user for a PIN via GUI or TTY fallback.
-func (a *PINPromptAdapter) PromptForPIN(ctx context.Context, errorMode bool, message string) (string, error) {
-	if len(message) > maxMessageLen {
-		message = message[:maxMessageLen]
-	}
-
+// The validate callback is called for each PIN submission; the prompt stays
+// open until validate returns nil, the user cancels, or the context expires.
+func (a *PINPromptAdapter) PromptForPIN(ctx context.Context, validate port.PINValidateFunc) error {
 	if a.guiAvailable {
-		return a.promptGUI(ctx, errorMode, message)
+		return a.promptGUI(ctx, validate)
 	}
 
 	if a.isTTY {
 		fmt.Fprintln(os.Stderr, "sekeve: GUI unavailable, falling back to terminal input")
-		return promptTTY(errorMode, message)
+		return promptTTY(ctx, validate)
 	}
 
-	return "", port.ErrNoPINInputMethod
+	return port.ErrNoPINInputMethod
 }
 
 const pinCSS = `
@@ -99,14 +100,19 @@ window.error label {
 }
 `
 
-func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, message string) (string, error) {
+const promptTimeout = 90 * time.Second
+
+func (a *PINPromptAdapter) promptGUI(ctx context.Context, validate port.PINValidateFunc) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	var pin string
+	var success bool
+	var validationErr error
 
 	appID := "dev.bnema.sekeve.pinprompt"
 	app := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
+
+	resetCh := make(chan struct{}, 1)
 
 	activateCb := func(gio.Application) {
 		window := gtk.NewApplicationWindow(app)
@@ -115,7 +121,6 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 		window.SetTitle(&title)
 		window.SetDecorated(false)
 
-		// Layer-shell setup (Wayland overlay positioning).
 		if layershell.Available() && layershell.IsSupported() {
 			layershell.InitForWindow(&window.Window)
 			layershell.SetLayer(&window.Window, layershell.LayerOverlayValue)
@@ -131,10 +136,6 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 			gtk.StyleContextAddProviderForDisplay(display, cssProvider, 600)
 		}
 
-		if errorMode {
-			window.AddCssClass("error")
-		}
-
 		vbox := gtk.NewBox(gtk.OrientationVerticalValue, 0)
 		vbox.SetMarginTop(16)
 		vbox.SetMarginBottom(16)
@@ -142,17 +143,7 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 		vbox.SetMarginEnd(16)
 
 		label := gtk.NewLabel(nil)
-		switch {
-		case message != "":
-			label.SetText(message)
-			label.SetVisible(true)
-		case errorMode:
-			label.SetText(defaultPINError)
-			label.SetVisible(true)
-		default:
-			label.SetVisible(false)
-		}
-		vbox.Append(&label.Widget)
+		label.SetVisible(false)
 
 		entry := gtk.NewPasswordEntry()
 		entry.SetPropertyPlaceholderText("PIN")
@@ -160,12 +151,59 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 
 		activateEntryCb := func(gtk.PasswordEntry) {
 			text := entry.GetText()
-			if text != "" {
-				pin = text
-				app.Quit()
+			if text == "" {
+				return
 			}
+
+			select {
+			case resetCh <- struct{}{}:
+			default:
+			}
+
+			entry.SetSensitive(false)
+
+			go func() {
+				err := validate(ctx, text)
+
+				if err == nil {
+					fn := glib.SourceOnceFunc(func(uintptr) {
+						success = true
+						app.Quit()
+					})
+					glib.IdleAddOnce(&fn, 0)
+					return
+				}
+
+				// Check for fatal error (e.g. max retries exceeded).
+				var fatal *port.PINFatalError
+				if errors.As(err, &fatal) {
+					fn := glib.SourceOnceFunc(func(uintptr) {
+						validationErr = fatal.Err
+						app.Quit()
+					})
+					glib.IdleAddOnce(&fn, 0)
+					return
+				}
+
+				// Retriable error — show message, clear input, refocus.
+				msg := err.Error()
+				if utf8.RuneCountInString(msg) > maxMessageLen {
+					msg = string([]rune(msg)[:maxMessageLen])
+				}
+				fn := glib.SourceOnceFunc(func(uintptr) {
+					window.AddCssClass("error")
+					label.SetText(msg)
+					label.SetVisible(true)
+					entry.SetText("")
+					entry.SetSensitive(true)
+					entry.GrabFocus()
+				})
+				glib.IdleAddOnce(&fn, 0)
+			}()
 		}
 		entry.ConnectActivate(&activateEntryCb)
+
+		vbox.Append(&label.Widget)
 		vbox.Append(&entry.Widget)
 
 		window.SetChild(&vbox.Widget)
@@ -192,32 +230,49 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 	}
 	app.ConnectActivate(&activateCb)
 
-	// Context cancellation from a goroutine. The done channel prevents
-	// posting to the GLib main loop after app.Run has already returned.
+	// Context cancellation and inactivity timeout from a goroutine.
 	done := make(chan struct{})
 	go func() {
-		select {
-		case <-ctx.Done():
+		timer := time.NewTimer(promptTimeout)
+		defer timer.Stop()
+		for {
 			select {
+			case <-ctx.Done():
+			case <-timer.C:
 			case <-done:
-				return // app.Run already returned, don't post to dead loop
-			default:
+				return
+			case <-resetCh:
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(promptTimeout)
+				continue
 			}
-			quitFn := glib.SourceOnceFunc(func(uintptr) { app.Quit() })
-			glib.IdleAddOnce(&quitFn, 0)
-		case <-done:
+			break
 		}
+		select {
+		case <-done:
+			return // app.Run already returned
+		default:
+		}
+		quitFn := glib.SourceOnceFunc(func(uintptr) { app.Quit() })
+		glib.IdleAddOnce(&quitFn, 0)
 	}()
 
 	app.Run(0, nil)
 	close(done)
 
-	// Determine result.
-	if pin != "" {
-		return pin, nil
+	if success {
+		return nil
+	}
+	if validationErr != nil {
+		return validationErr
 	}
 	if ctx.Err() != nil {
-		return "", ctx.Err()
+		return ctx.Err()
 	}
-	return "", port.ErrPINPromptCancelled
+	return port.ErrPINPromptCancelled
 }
