@@ -123,8 +123,9 @@ func (a *PINPromptAdapter) promptGUI(ctx context.Context, errorMode bool, messag
 
 		cssProvider := gtk.NewCssProvider()
 		cssProvider.LoadFromString(pinCSS)
-		display := gdk.DisplayGetDefault()
-		gtk.StyleContextAddProviderForDisplay(display, cssProvider, 600)
+		if display := gdk.DisplayGetDefault(); display != nil {
+			gtk.StyleContextAddProviderForDisplay(display, cssProvider, 600)
+		}
 
 		if errorMode {
 			window.AddCssClass("error")
