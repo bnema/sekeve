@@ -154,6 +154,9 @@ func (o *Omnibox) RestoreState(mode int, category int, query string) {
 // Up/Down/Enter to the search view).
 func (o *Omnibox) AttachKeyController(window *gtk.Window) {
 	keyCtrl := gtk.NewEventControllerKey()
+	// Use capture phase so we intercept keys before child widgets
+	// (e.g. SearchEntry consuming Escape via stop-search).
+	keyCtrl.SetPropagationPhase(gtk.PhaseCaptureValue)
 
 	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
 		ctrl := state&gdk.ControlMaskValue != 0
