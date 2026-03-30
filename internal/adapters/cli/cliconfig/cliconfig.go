@@ -45,6 +45,23 @@ func WithConfig(ctx context.Context, cfg port.ConfigPort) context.Context {
 	return context.WithValue(ctx, configKey, cfg)
 }
 
+const pinPromptKey ctxKey = "pinPrompt"
+
+// PINPromptFromCtx retrieves the PINPromptPort stored in the context.
+// Panics if WithPINPrompt was not called before ConnectAndAuth.
+func PINPromptFromCtx(ctx context.Context) port.PINPromptPort {
+	p, ok := ctx.Value(pinPromptKey).(port.PINPromptPort)
+	if !ok {
+		panic("PINPromptFromCtx: no PINPromptPort in context; ensure WithPINPrompt was called before ConnectAndAuth")
+	}
+	return p
+}
+
+// WithPINPrompt returns a new context with the given PINPromptPort embedded.
+func WithPINPrompt(ctx context.Context, p port.PINPromptPort) context.Context {
+	return context.WithValue(ctx, pinPromptKey, p)
+}
+
 // ReadPassword prints the prompt to stderr, reads a password without echo, and returns it.
 func ReadPassword(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)
