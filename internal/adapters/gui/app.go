@@ -125,7 +125,6 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 		title := "Sekeve"
 		window.SetTitle(&title)
 		window.SetDecorated(false)
-		window.SetFocusVisible(false)
 
 		if !setupLayerShell(&window.Window, "sekeve-omnibox") {
 			fmt.Fprintln(os.Stderr, "sekeve: WARNING: layer-shell not available, omnibox will open as regular window")

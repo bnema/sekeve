@@ -42,7 +42,6 @@ func PromptGUI(ctx context.Context, validate port.PINValidateFunc, css string) e
 		title := "Sekeve"
 		window.SetTitle(&title)
 		window.SetDecorated(false)
-		window.SetFocusVisible(false)
 
 		lsh.InitOverlay(&window.Window, lsh.OverlayConfig{
 			Namespace: "sekeve-pin",
