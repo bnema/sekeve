@@ -3,6 +3,7 @@ package notification
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/esiqveland/notify"
@@ -33,8 +34,7 @@ func NewDBus() (port.NotificationPort, error) {
 
 	notifier, err := notify.New(conn)
 	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("notifier: %w", err)
+		return nil, errors.Join(fmt.Errorf("notifier: %w", err), conn.Close())
 	}
 
 	return &DBusNotifier{conn: conn, notifier: notifier}, nil
@@ -64,6 +64,5 @@ func (d *DBusNotifier) Notify(_ context.Context, summary, body string, urgency p
 }
 
 func (d *DBusNotifier) Close() error {
-	d.notifier.Close()
-	return d.conn.Close()
+	return errors.Join(d.notifier.Close(), d.conn.Close())
 }

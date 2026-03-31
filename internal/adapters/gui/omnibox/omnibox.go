@@ -5,8 +5,6 @@ package omnibox
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -162,23 +160,16 @@ func (o *Omnibox) AttachKeyController(window *gtk.Window) {
 	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
 		ctrl := state&gdk.ControlMaskValue != 0
 
-		fmt.Fprintf(os.Stderr, "sekeve: key pressed: keyval=%d (0x%x) ctrl=%v\n", keyval, keyval, ctrl)
-
 		switch int(keyval) {
 		case gdk.KEY_Escape:
-			fmt.Fprintln(os.Stderr, "sekeve: Escape pressed")
 			return o.handleEscape()
 
 		case gdk.KEY_Tab:
-			fmt.Fprintf(os.Stderr, "sekeve: Tab pressed, ring has %d widgets\n", len(o.ring.Widgets()))
-			w := o.ring.Next()
-			fmt.Fprintf(os.Stderr, "sekeve: Tab → Next() returned %v\n", w)
+			o.ring.Next()
 			return true
 
 		case gdk.KEY_ISO_Left_Tab: // Shift+Tab
-			fmt.Fprintln(os.Stderr, "sekeve: Shift+Tab pressed")
-			w := o.ring.Prev()
-			fmt.Fprintf(os.Stderr, "sekeve: Shift+Tab → Prev() returned %v\n", w)
+			o.ring.Prev()
 			return true
 
 		case gdk.KEY_1, gdk.KEY_2, gdk.KEY_3, gdk.KEY_4:
@@ -334,7 +325,7 @@ func (o *Omnibox) openDetail() {
 			return
 		}
 
-		o.cfg.DecryptAndUse(o.ctx, full.Payload, func(plaintext []byte) {
+		if err := o.cfg.DecryptAndUse(o.ctx, full.Payload, func(plaintext []byte) {
 			// Copy plaintext so it survives the callback scope.
 			pt := make([]byte, len(plaintext))
 			copy(pt, plaintext)
@@ -342,7 +333,9 @@ func (o *Omnibox) openDetail() {
 			gtkutil.IdleAddOnce(func() {
 				o.switchToDetailView(full, pt)
 			})
-		})
+		}); err != nil {
+			sendNotify(o.ctx, o.cfg, "Sekeve", "Failed to decrypt entry", port.UrgencyCritical, "dialog-error")
+		}
 	}()
 }
 
@@ -403,7 +396,6 @@ func (o *Omnibox) rebuildFocusRing() {
 			}
 		}
 	}
-	fmt.Fprintf(os.Stderr, "sekeve: rebuildFocusRing mode=%d widgets=%d\n", o.currentMode, len(widgets))
 	o.ring.SetWidgets(widgets...)
 }
 
@@ -424,8 +416,7 @@ type focusableWidget struct {
 }
 
 func (f *focusableWidget) GrabFocus() {
-	ok := f.w.GrabFocus()
-	fmt.Fprintf(os.Stderr, "sekeve: GrabFocus on %p → %v, HasFocus=%v\n", f.w.GoPointer(), ok, f.w.HasFocus())
+	f.w.GrabFocus()
 }
 func (f *focusableWidget) HasFocus() bool    { return f.w.HasFocus() }
 func (f *focusableWidget) SetVisible(v bool) { f.w.SetVisible(v) }

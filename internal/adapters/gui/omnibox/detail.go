@@ -241,9 +241,7 @@ func (dv *DetailView) buildNoteDetail(plaintext []byte) {
 	}
 
 	// Multiline text view in a scrolled window.
-	dv.noteContent, _ = gtkutil.SafeNewWidget("detail-note-textview", func() *gtk.TextView {
-		return gtk.NewTextView()
-	})
+	dv.noteContent, _ = gtkutil.SafeNewWidget("detail-note-textview", gtk.NewTextView)
 	if dv.noteContent != nil {
 		dv.noteContent.SetWrapMode(gtk.WrapWordValue)
 		buf := dv.noteContent.GetBuffer()
@@ -252,9 +250,7 @@ func (dv *DetailView) buildNoteDetail(plaintext []byte) {
 		}
 	}
 
-	scroll, _ := gtkutil.SafeNewWidget("detail-note-scroll", func() *gtk.ScrolledWindow {
-		return gtk.NewScrolledWindow()
-	})
+	scroll, _ := gtkutil.SafeNewWidget("detail-note-scroll", gtk.NewScrolledWindow)
 
 	dv.noteContCopy = dv.newCopyButton(func() string {
 		if dv.noteContent != nil {

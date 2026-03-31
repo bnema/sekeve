@@ -63,9 +63,7 @@ func NewSearchView(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *
 	sv.Root = root
 
 	// --- Search entry ---
-	sv.entry, _ = gtkutil.SafeNewWidget("search-entry", func() *gtk.SearchEntry {
-		return gtk.NewSearchEntry()
-	})
+	sv.entry, _ = gtkutil.SafeNewWidget("search-entry", gtk.NewSearchEntry)
 	if sv.entry != nil {
 		placeholder := "Search entries..."
 		sv.entry.SetPlaceholderText(&placeholder)
@@ -97,12 +95,8 @@ func NewSearchView(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *
 	}
 
 	// --- Scrolled result list ---
-	sv.scroll, _ = gtkutil.SafeNewWidget("search-scroll", func() *gtk.ScrolledWindow {
-		return gtk.NewScrolledWindow()
-	})
-	sv.listBox, _ = gtkutil.SafeNewWidget("search-listbox", func() *gtk.ListBox {
-		return gtk.NewListBox()
-	})
+	sv.scroll, _ = gtkutil.SafeNewWidget("search-scroll", gtk.NewScrolledWindow)
+	sv.listBox, _ = gtkutil.SafeNewWidget("search-listbox", gtk.NewListBox)
 
 	if sv.listBox != nil {
 		sv.listBox.SetSelectionMode(gtk.SelectionBrowseValue)
@@ -355,9 +349,7 @@ func (sv *SearchView) onSearchChanged() {
 
 // buildRow creates a ListBoxRow for an envelope.
 func (sv *SearchView) buildRow(env *entity.Envelope) *gtk.ListBoxRow {
-	row, _ := gtkutil.SafeNewWidget("result-row", func() *gtk.ListBoxRow {
-		return gtk.NewListBoxRow()
-	})
+	row, _ := gtkutil.SafeNewWidget("result-row", gtk.NewListBoxRow)
 	if row == nil {
 		return nil
 	}
@@ -446,7 +438,7 @@ func (sv *SearchView) copyEntryAtIndex(listIndex int) {
 		}
 
 		var copyOK bool
-		sv.cfg.DecryptAndUse(sv.ctx, full.Payload, func(plaintext []byte) {
+		if err := sv.cfg.DecryptAndUse(sv.ctx, full.Payload, func(plaintext []byte) {
 			value := extractMainValue(full.Type, plaintext)
 			if value == "" {
 				sendNotify(sv.ctx, sv.cfg, "Sekeve", "Entry has no copyable value", port.UrgencyNormal, "dialog-warning")
@@ -459,7 +451,10 @@ func (sv *SearchView) copyEntryAtIndex(listIndex int) {
 			}
 			copyOK = true
 			sendNotify(sv.ctx, sv.cfg, "Sekeve", fmt.Sprintf("Copied %s to clipboard", full.Name), port.UrgencyLow, "")
-		})
+		}); err != nil {
+			sendNotify(sv.ctx, sv.cfg, "Sekeve", "Failed to decrypt entry", port.UrgencyCritical, "dialog-error")
+			return
+		}
 
 		if !copyOK {
 			return

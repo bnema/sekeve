@@ -29,9 +29,7 @@ func NewLabeledEntry(labelText, placeholder string) *LabeledEntry {
 		label.SetHalign(gtk.AlignStartValue)
 	}
 
-	entry, _ := gtkutil.SafeNewWidget("field-entry", func() *gtk.Entry {
-		return gtk.NewEntry()
-	})
+	entry, _ := gtkutil.SafeNewWidget("field-entry", gtk.NewEntry)
 	if entry != nil {
 		entry.SetPlaceholderText(&placeholder)
 		entry.SetHexpand(true)
@@ -70,9 +68,7 @@ func NewLabeledPassword(labelText, placeholder string) *LabeledPassword {
 		label.SetHalign(gtk.AlignStartValue)
 	}
 
-	entry, _ := gtkutil.SafeNewWidget("field-pw", func() *gtk.PasswordEntry {
-		return gtk.NewPasswordEntry()
-	})
+	entry, _ := gtkutil.SafeNewWidget("field-pw", gtk.NewPasswordEntry)
 	if entry != nil {
 		entry.SetPropertyPlaceholderText(placeholder)
 	}

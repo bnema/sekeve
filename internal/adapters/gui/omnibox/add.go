@@ -213,13 +213,9 @@ func (av *AddView) buildNoteForm() {
 	}
 
 	// Multiline text view in a scrolled window.
-	av.noteContent, _ = gtkutil.SafeNewWidget("note-textview", func() *gtk.TextView {
-		return gtk.NewTextView()
-	})
+	av.noteContent, _ = gtkutil.SafeNewWidget("note-textview", gtk.NewTextView)
 
-	scroll, _ := gtkutil.SafeNewWidget("note-scroll", func() *gtk.ScrolledWindow {
-		return gtk.NewScrolledWindow()
-	})
+	scroll, _ := gtkutil.SafeNewWidget("note-scroll", gtk.NewScrolledWindow)
 	if scroll != nil {
 		scroll.SetPolicy(gtk.PolicyNeverValue, gtk.PolicyAutomaticValue)
 		scroll.SetMinContentHeight(80)

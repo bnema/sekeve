@@ -192,8 +192,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 					}
 					authResult = authRes
 					attempts = 0
-					// User-facing message, intentionally capitalized.
-					result = fmt.Errorf("Session expired, enter PIN again")
+					result = fmt.Errorf("Session expired, enter PIN again") //nolint:staticcheck // user-facing message
 				case codes.ResourceExhausted:
 					result = fmt.Errorf("%s", st.Message())
 				default:

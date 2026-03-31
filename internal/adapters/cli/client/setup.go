@@ -1,6 +1,9 @@
 package client
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/gui"
 	"github.com/bnema/sekeve/internal/adapters/notification"
@@ -26,7 +29,11 @@ func WithGUI(cmd *cobra.Command) *cobra.Command {
 		if err != nil {
 			notifier = notification.NewNoop()
 		}
-		cobra.OnFinalize(func() { notifier.Close() })
+		cobra.OnFinalize(func() {
+			if err := notifier.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "sekeve: notification cleanup: %v\n", err)
+			}
+		})
 		ctx = cliconfig.WithNotify(ctx, notifier)
 
 		cmd.SetContext(ctx)
