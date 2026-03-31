@@ -26,8 +26,8 @@ window {
     border-radius: 10px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(52, 211, 153, 0.08);
     font-size: 14px;
-    min-width: 520px;
-    max-width: 520px;
+    min-width: 37rem;
+    max-width: 37rem;
 }
 
 .sekeve-header {
