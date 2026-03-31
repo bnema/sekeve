@@ -181,24 +181,17 @@ func (o *Omnibox) AttachKeyController(window *gtk.Window) {
 			fmt.Fprintf(os.Stderr, "sekeve: Shift+Tab → Prev() returned %v\n", w)
 			return true
 
-		case gdk.KEY_1:
+		case gdk.KEY_1, gdk.KEY_2, gdk.KEY_3, gdk.KEY_4:
 			if ctrl {
-				o.categoryBar.SetActive(0)
-				return true
-			}
-		case gdk.KEY_2:
-			if ctrl {
-				o.categoryBar.SetActive(1)
-				return true
-			}
-		case gdk.KEY_3:
-			if ctrl {
-				o.categoryBar.SetActive(2)
-				return true
-			}
-		case gdk.KEY_4:
-			if ctrl {
-				o.categoryBar.SetActive(3)
+				n := int(keyval) - gdk.KEY_1 // 0-based from key
+				if o.currentMode == 1 {
+					// Add mode: no "All" tab, so Ctrl+1=Login(1), Ctrl+2=Note(2), Ctrl+3=Secret(3).
+					n++
+					if n > 3 {
+						return true
+					}
+				}
+				o.categoryBar.SetActive(n)
 				return true
 			}
 
@@ -278,16 +271,14 @@ func (o *Omnibox) setMode(index int) {
 	if o.detailView != nil {
 		o.detailView.Hide()
 	}
-	// Restore tab bars visibility.
+	// Restore mode bar visibility.
 	if o.modeBar.Box != nil {
 		o.modeBar.Box.SetVisible(true)
 	}
-	if o.categoryBar.Box != nil {
-		o.categoryBar.Box.SetVisible(true)
-	}
 
 	if index == 0 {
-		// Search mode.
+		// Search mode — show "All" tab again.
+		o.categoryBar.SetButtonVisible(0, true)
 		if o.addView != nil {
 			o.addView.Hide()
 		}
@@ -297,7 +288,12 @@ func (o *Omnibox) setMode(index int) {
 		o.rebuildFocusRing()
 		o.search.GrabFocus()
 	} else {
-		// Add mode.
+		// Add mode — hide the "All" tab (doesn't apply for creating entries).
+		o.categoryBar.SetButtonVisible(0, false)
+		// If "All" was selected, default to Login.
+		if o.categoryBar.Active() == 0 {
+			o.categoryBar.SetActive(1)
+		}
 		if o.search != nil && o.search.Root != nil {
 			o.search.Root.SetVisible(false)
 		}
@@ -383,6 +379,11 @@ func (o *Omnibox) rebuildFocusRing() {
 	case 1: // add mode
 		if o.addView != nil {
 			widgets = append(widgets, o.addView.Focusables()...)
+		}
+		for i := 0; i < o.modeBar.Len(); i++ {
+			if btn := o.modeBar.ButtonAt(i); btn != nil {
+				widgets = append(widgets, &focusableWidget{&btn.Widget})
+			}
 		}
 	case 2: // detail mode
 		if o.detailView != nil {

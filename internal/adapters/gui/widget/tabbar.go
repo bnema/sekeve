@@ -95,3 +95,10 @@ func (t *TabBar) ButtonAt(i int) *gtk.Button {
 
 // Len returns the number of tabs.
 func (t *TabBar) Len() int { return len(t.buttons) }
+
+// SetButtonVisible shows or hides the button at the given index.
+func (t *TabBar) SetButtonVisible(i int, visible bool) {
+	if i >= 0 && i < len(t.buttons) {
+		t.buttons[i].SetVisible(visible)
+	}
+}

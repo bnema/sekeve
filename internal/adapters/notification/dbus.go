@@ -11,7 +11,10 @@ import (
 	"github.com/bnema/sekeve/internal/port"
 )
 
-const appName = "sekeve"
+const (
+	appName          = "sekeve"
+	defaultTimeoutMs = 5000 // 5 seconds
+)
 
 // DBusNotifier sends desktop notifications over the org.freedesktop.Notifications D-Bus interface.
 type DBusNotifier struct {
@@ -42,12 +45,14 @@ func (d *DBusNotifier) Notify(_ context.Context, summary, body string, urgency p
 	}
 
 	n := notify.Notification{
-		AppName: appName,
-		AppIcon: icon,
-		Summary: summary,
-		Body:    body,
+		AppName:       appName,
+		AppIcon:       icon,
+		Summary:       summary,
+		Body:          body,
+		ExpireTimeout: defaultTimeoutMs,
 		Hints: map[string]dbus.Variant{
-			"urgency": dbus.MakeVariant(byte(urgency)),
+			"urgency":       dbus.MakeVariant(byte(urgency)),
+			"desktop-entry": dbus.MakeVariant("dev.bnema.sekeve"),
 		},
 	}
 

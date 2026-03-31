@@ -33,21 +33,23 @@ window {
 .sekeve-header {
     background-color: #0d1814;
     border-bottom: 1px solid #1a3028;
+    border-radius: 10px 10px 0 0;
     padding: 6px 10px;
 }
 
 .sekeve-tab {
-    padding: 4px 14px;
+    padding: 2px 14px;
     border-radius: 6px;
     font-size: 0.93rem;
     font-weight: 500;
     color: #4a7a66;
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
+    min-height: 0;
 }
 
 .sekeve-tab-active {
-    background-color: #34d399;
+    background-color: #1a6a4d;
     color: #0f1a16;
 }
 
@@ -97,7 +99,8 @@ button:focus {
     color: #c8e8d8;
 }
 
-.sekeve-search-row entry:focus, .sekeve-search-row searchentry:focus {
+.sekeve-search-row entry:focus, .sekeve-search-row searchentry:focus,
+.sekeve-search-row entry:focus-within, .sekeve-search-row searchentry:focus-within {
     border: none;
     box-shadow: none;
 }
@@ -111,13 +114,14 @@ entry, passwordentry {
     color: #c8e8d8;
     border: 1px solid #1a3028;
     border-radius: 6px;
-    padding: 8px 10px;
+    padding: 4px 10px;
     font-size: 1rem;
 }
 
-entry:focus, passwordentry:focus {
-    border-color: #34d399;
-    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.2);
+entry:focus, entry:focus-within,
+passwordentry:focus, passwordentry:focus-within {
+    border-color: #6ee7b7;
+    box-shadow: 0 0 0 1px rgba(110, 231, 183, 0.3);
 }
 
 textview {
@@ -207,21 +211,23 @@ row, list row, listbox row {
 }
 
 .sekeve-btn-cancel {
-    background-color: #1a3028;
+    background: #1a3028;
     color: #4a7a66;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 6px;
-    padding: 6px 18px;
+    padding: 2px 18px;
     font-size: 0.93rem;
+    min-height: 0;
 }
 
 .sekeve-btn-save {
-    background-color: #34d399;
+    background: #1a6a4d;
     color: #0f1a16;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 6px;
-    padding: 6px 18px;
+    padding: 2px 18px;
     font-size: 0.93rem;
+    min-height: 0;
 }
 
 .sekeve-copy-btn {
