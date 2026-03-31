@@ -1,6 +1,6 @@
 # Sekeve
 
-A CLI secret manager. Secrets are encrypted locally with your GPG key and stored on a remote gRPC server. The server sees only encrypted blobs. Your private key never leaves your machine.
+A secret manager with a GTK4 overlay UI and a full CLI. Secrets are encrypted locally with your GPG key and stored on a remote gRPC server. The server sees only encrypted blobs. Your private key never leaves your machine.
 
 Decrypted values are protected in memory using Go 1.26's `runtime/secret.Do`, which zeroes registers, stack, and heap after use.
 
@@ -19,7 +19,17 @@ make install
 
 ### Runtime dependencies (Linux)
 
-The GTK4 PIN overlay requires `libgtk-4` and `gtk4-layer-shell` at runtime. Install via your package manager (e.g., `sudo pacman -S gtk4 gtk4-layer-shell` on Arch, `sudo apt install libgtk-4-1 libgtk4-layer-shell0` on Debian). The binary falls back to terminal PIN input if these are not present, but currently requires GTK4 libraries to be installed to start.
+The GTK4 overlay (omnibox and PIN prompt) requires `libgtk-4` and `gtk4-layer-shell`. Install via your package manager:
+
+```bash
+# Arch
+sudo pacman -S gtk4 gtk4-layer-shell
+
+# Debian / Ubuntu
+sudo apt install libgtk-4-1 libgtk4-layer-shell0
+```
+
+When `gtk4-layer-shell` is installed, sekeve automatically sets `LD_PRELOAD` and re-execs itself — no wrapper scripts needed. Without it, the overlay opens as a regular window. The CLI works either way.
 
 ## Server setup
 
@@ -114,6 +124,24 @@ sekeve edit github
 sekeve rm stripe-key
 ```
 
+## Omnibox overlay
+
+`sekeve omnibox` opens a GTK4 overlay for searching, viewing, adding, and editing entries — all from one keyboard-driven window. It renders as a Wayland layer-shell surface, so it floats above your desktop without a title bar or window decorations.
+
+Bind it to a hotkey in your compositor:
+
+```kdl
+// niri
+Mod+Ctrl+P hotkey-overlay-title="Sekeve" { spawn "sekeve" "omnibox"; }
+```
+
+```ini
+# sway / hyprland
+bindsym $mod+Ctrl+p exec sekeve omnibox
+```
+
+If no session exists, a PIN prompt appears first. Press Escape on empty search to close the overlay.
+
 ## Fuzzel / dmenu integration
 
 List all entries in a picker-friendly format, then copy the selected value to clipboard:
@@ -149,17 +177,15 @@ sekeve pin change    # change (requires current PIN)
 
 The PIN is hashed server-side with argon2id. It cannot be removed once set. Failed attempts trigger exponential backoff (2s up to 60s).
 
-In a terminal, the PIN is prompted interactively. When launched from a desktop shortcut with no TTY (e.g., niri/sway hotkey), a GTK4 overlay prompt appears automatically via layer-shell. No window rules are needed.
+In a terminal, the PIN is prompted interactively. When launched from a hotkey with no TTY (e.g., niri/sway keybinding), a GTK4 overlay prompt appears automatically via layer-shell.
 
-Use `--ensure-session` in the keybinding so the PIN prompt appears before fuzzel:
+For the dmenu workflow, use `--ensure-session` so the PIN prompt appears before fuzzel:
 
-```kdl
-Mod+Ctrl+P hotkey-overlay-title="Password Manager: Sekeve" {
-    spawn "bash" "-c" "sekeve dmenu --ensure-session && sel=$(sekeve dmenu --list | fuzzel --dmenu --with-nth=1 --accept-nth=2 --prompt '  ' --placeholder 'Search a login...' --no-icons) && [ -n \"$sel\" ] && sekeve dmenu --copy \"$sel\""
-}
+```bash
+sekeve dmenu --ensure-session && sel=$(sekeve dmenu --list | fuzzel --dmenu) && sekeve dmenu --copy "$sel"
 ```
 
-Without `--ensure-session`, fuzzel would open simultaneously with the PIN prompt and steal focus.
+Without `--ensure-session`, fuzzel opens simultaneously with the PIN prompt and steals focus. The omnibox handles this automatically.
 
 ## Auth
 
