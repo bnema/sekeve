@@ -50,7 +50,6 @@ func New(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *Omnibox {
 		return gtk.NewBox(gtk.OrientationVerticalValue, 0)
 	})
 	root.AddCssClass("sekeve-overlay")
-	root.SetSizeRequest(520, -1)
 	o.Root = root
 
 	// --- L1 mode tabs (Search / Add) ---
