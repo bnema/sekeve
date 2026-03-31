@@ -69,6 +69,9 @@ func (r *Ring) SetWidgets(widgets ...Focusable) {
 	r.current = -1
 }
 
+// Widgets returns the current widget list for debugging.
+func (r *Ring) Widgets() []Focusable { return r.widgets }
+
 // Current returns the currently focused widget, or nil.
 func (r *Ring) Current() Focusable {
 	if r.current < 0 || r.current >= len(r.widgets) {
