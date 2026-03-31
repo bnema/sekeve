@@ -499,6 +499,13 @@ func buildFooter(quitFn func(), callbacks *[]interface{}) *gtk.Box {
 	return footerBox
 }
 
+// sendNotify fires the OmniboxConfig.Notify callback if configured.
+func sendNotify(ctx context.Context, cfg port.OmniboxConfig, summary, body string, urgency port.Urgency, icon string) {
+	if cfg.Notify != nil {
+		cfg.Notify(ctx, summary, body, urgency, icon)
+	}
+}
+
 // clearBoxChildren removes all children from a GTK Box.
 func clearBoxChildren(box *gtk.Box) {
 	for {

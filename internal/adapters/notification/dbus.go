@@ -23,17 +23,18 @@ type DBusNotifier struct {
 }
 
 // NewDBus connects to the session bus and returns a ready notifier.
-// Returns a Noop notifier if the session bus is unavailable (e.g. headless/container).
+// Returns an error if the session bus or notifier cannot be initialised;
+// callers should fall back to NewNoop().
 func NewDBus() (port.NotificationPort, error) {
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
-		return NewNoop(), nil
+		return nil, fmt.Errorf("session bus: %w", err)
 	}
 
 	notifier, err := notify.New(conn)
 	if err != nil {
 		conn.Close()
-		return NewNoop(), nil
+		return nil, fmt.Errorf("notifier: %w", err)
 	}
 
 	return &DBusNotifier{conn: conn, notifier: notifier}, nil

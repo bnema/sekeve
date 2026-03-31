@@ -365,11 +365,19 @@ func (dv *DetailView) newCopyButton(getValue func() string) *gtk.Button {
 	if btn != nil {
 		btn.AddCssClass("sekeve-copy-btn")
 		ctx := dv.ctx
+		cfg := dv.cfg
 		clickCb := func(_ gtk.Button) {
 			value := getValue()
-			if value != "" {
-				go clipboard.Copy(ctx, value)
+			if value == "" {
+				return
 			}
+			go func() {
+				if err := clipboard.Copy(ctx, value); err != nil {
+					sendNotify(ctx, cfg, "Sekeve", fmt.Sprintf("Clipboard copy failed: %v", err), port.UrgencyCritical, "dialog-error")
+					return
+				}
+				sendNotify(ctx, cfg, "Sekeve", "Copied to clipboard", port.UrgencyLow, "")
+			}()
 		}
 		gtkutil.RetainCallback(&dv.callbacks, clickCb)
 		btn.ConnectClicked(&clickCb)
@@ -444,9 +452,10 @@ func (dv *DetailView) doSave() {
 	go func() {
 		err := dv.cfg.UpdateEntry(dv.ctx, env)
 		if err != nil {
-			fmt.Printf("sekeve: update entry failed: %v\n", err)
+			sendNotify(dv.ctx, dv.cfg, "Sekeve", fmt.Sprintf("Failed to update entry: %v", err), port.UrgencyCritical, "dialog-error")
 			return
 		}
+		sendNotify(dv.ctx, dv.cfg, "Sekeve", fmt.Sprintf("Updated %s", env.Name), port.UrgencyLow, "")
 		gtkutil.IdleAddOnce(func() {
 			dv.Hide()
 			if dv.onDone != nil {

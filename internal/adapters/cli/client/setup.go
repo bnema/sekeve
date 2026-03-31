@@ -22,7 +22,11 @@ func WithGUI(cmd *cobra.Command) *cobra.Command {
 		ctx = cliconfig.WithPINPrompt(ctx, guiAdapter)
 		ctx = cliconfig.WithGUI(ctx, guiAdapter)
 
-		notifier, _ := notification.NewDBus()
+		notifier, err := notification.NewDBus()
+		if err != nil {
+			notifier = notification.NewNoop()
+		}
+		cobra.OnFinalize(func() { notifier.Close() })
 		ctx = cliconfig.WithNotify(ctx, notifier)
 
 		cmd.SetContext(ctx)

@@ -82,13 +82,19 @@ func WithGUI(ctx context.Context, g port.GUIPort) context.Context {
 const notifyKey ctxKey = "notify"
 
 // NotifyFromCtx retrieves the NotificationPort stored in the context.
+// Returns a silent no-op if none was set (notifications are non-critical).
 func NotifyFromCtx(ctx context.Context) port.NotificationPort {
-	n, ok := ctx.Value(notifyKey).(port.NotificationPort)
-	if !ok {
-		panic("NotifyFromCtx: no NotificationPort in context; ensure WithNotify was called")
+	if n, ok := ctx.Value(notifyKey).(port.NotificationPort); ok {
+		return n
 	}
-	return n
+	return noopNotifier{}
 }
+
+// noopNotifier is an inline no-op so cliconfig doesn't import the adapter package.
+type noopNotifier struct{}
+
+func (noopNotifier) Notify(context.Context, string, string, port.Urgency, string) error { return nil }
+func (noopNotifier) Close() error                                                       { return nil }
 
 // WithNotify returns a new context with the given NotificationPort embedded.
 func WithNotify(ctx context.Context, n port.NotificationPort) context.Context {
@@ -205,9 +211,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 				return nil, unlockErr
 			}
 			if !prompt.IsTTY() {
-				if n, ok := ctx.Value(notifyKey).(port.NotificationPort); ok {
-					_ = n.Notify(ctx, "Sekeve", "PIN unlock failed", port.UrgencyCritical, "dialog-error")
-				}
+				_ = NotifyFromCtx(ctx).Notify(ctx, "Sekeve", "PIN unlock failed", port.UrgencyCritical, "dialog-error")
 			}
 			return nil, log.WrapErr(unlockErr, "unlock failed")
 		}
