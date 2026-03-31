@@ -37,7 +37,7 @@ window {
 .sekeve-tab {
     padding: 4px 14px;
     border-radius: 6px;
-    font-size: 13px;
+    font-size: 0.93rem;
     font-weight: 500;
     color: #4a7a66;
     background: transparent;
@@ -67,7 +67,7 @@ button:focus {
 .sekeve-category {
     padding: 3px 10px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 0.86rem;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -91,7 +91,7 @@ button:focus {
     border: none;
     box-shadow: none;
     padding: 10px 0;
-    font-size: 14px;
+    font-size: 1rem;
     color: #c8e8d8;
 }
 
@@ -110,7 +110,7 @@ entry, passwordentry {
     border: 1px solid #1a3028;
     border-radius: 6px;
     padding: 8px 10px;
-    font-size: 14px;
+    font-size: 1rem;
 }
 
 entry:focus, passwordentry:focus {
@@ -121,7 +121,7 @@ entry:focus, passwordentry:focus {
 textview {
     background-color: #0a140f;
     color: #c8e8d8;
-    font-size: 14px;
+    font-size: 1rem;
 }
 
 textview border {
@@ -134,7 +134,7 @@ textview:focus border {
 }
 
 .sekeve-label {
-    font-size: 12px;
+    font-size: 0.86rem;
     font-weight: 500;
     color: #4a7a66;
     text-transform: uppercase;
@@ -160,7 +160,7 @@ row, list row, listbox row {
 
 .sekeve-row-name {
     font-weight: 500;
-    font-size: 14px;
+    font-size: 1rem;
     color: #b0d8c8;
 }
 
@@ -169,13 +169,13 @@ row, list row, listbox row {
 }
 
 .sekeve-row-meta {
-    font-size: 12px;
+    font-size: 0.86rem;
     color: #3a6a56;
 }
 
 .sekeve-footer {
     border-top: 1px solid #1a3028;
-    font-size: 11px;
+    font-size: 0.79rem;
     color: #2a5040;
     padding: 6px 12px;
 }
@@ -185,7 +185,7 @@ row, list row, listbox row {
     color: #4a7a66;
     padding: 1px 5px;
     border-radius: 3px;
-    font-size: 11px;
+    font-size: 0.79rem;
 }
 
 .sekeve-quit-btn {
@@ -194,7 +194,7 @@ row, list row, listbox row {
     border-radius: 3px;
     color: #4a7a66;
     padding: 0px 5px;
-    font-size: 10px;
+    font-size: 0.71rem;
     min-height: 0;
     margin: 0;
 }
@@ -210,7 +210,7 @@ row, list row, listbox row {
     border: none;
     border-radius: 6px;
     padding: 6px 18px;
-    font-size: 13px;
+    font-size: 0.93rem;
 }
 
 .sekeve-btn-save {
@@ -219,7 +219,7 @@ row, list row, listbox row {
     border: none;
     border-radius: 6px;
     padding: 6px 18px;
-    font-size: 13px;
+    font-size: 0.93rem;
 }
 
 .sekeve-copy-btn {
@@ -249,7 +249,7 @@ row, list row, listbox row {
 }
 
 .sekeve-pin entry, .sekeve-pin passwordentry {
-    font-size: 20px;
+    font-size: 1.43rem;
     min-width: 320px;
     padding: 8px 12px;
 }
