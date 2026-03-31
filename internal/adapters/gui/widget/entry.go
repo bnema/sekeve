@@ -71,6 +71,7 @@ func NewLabeledPassword(labelText, placeholder string) *LabeledPassword {
 	entry, _ := gtkutil.SafeNewWidget("field-pw", gtk.NewPasswordEntry)
 	if entry != nil {
 		entry.SetPropertyPlaceholderText(placeholder)
+		entry.SetHexpand(true)
 	}
 
 	if box != nil {

@@ -60,6 +60,23 @@ func TestSearch_NoResults(t *testing.T) {
 	}
 }
 
+func TestScore_UnicodeMatching(t *testing.T) {
+	s := Score("café", "café au lait")
+	if s <= 0 {
+		t.Errorf("unicode prefix match should score > 0, got %d", s)
+	}
+
+	s = Score("naïve", "naïve approach")
+	if s <= 0 {
+		t.Errorf("unicode match with diaeresis should score > 0, got %d", s)
+	}
+
+	s = Score("日本", "日本語テスト")
+	if s <= 0 {
+		t.Errorf("CJK match should score > 0, got %d", s)
+	}
+}
+
 func TestSearch_MultiWord(t *testing.T) {
 	items := []string{"Git SSH Config", "GitHub Actions", "SSH Key"}
 	results := Search("git ssh", items, 5)

@@ -44,8 +44,9 @@ type SearchView struct {
 	names      []string // parallel to entries, for fuzzy search
 	matches    []fuzzysearch.Match
 
-	debounceTimer *time.Timer
-	callbacks     []interface{}
+	debounceTimer   *time.Timer
+	debounceVersion int
+	callbacks       []interface{}
 }
 
 // NewSearchView creates the search entry and result list.
@@ -73,8 +74,13 @@ func NewSearchView(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *
 			if sv.debounceTimer != nil {
 				sv.debounceTimer.Stop()
 			}
+			sv.debounceVersion++
+			ver := sv.debounceVersion
 			sv.debounceTimer = time.AfterFunc(100*time.Millisecond, func() {
 				gtkutil.IdleAddOnce(func() {
+					if sv.debounceVersion != ver {
+						return
+					}
 					sv.onSearchChanged()
 				})
 			})
@@ -100,6 +106,7 @@ func NewSearchView(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *
 
 	if sv.listBox != nil {
 		sv.listBox.SetSelectionMode(gtk.SelectionBrowseValue)
+		sv.listBox.SetFocusable(false)
 
 		activatedCb := func(_ gtk.ListBox, row *gtk.ListBoxRow) {
 			if row != nil {
@@ -111,6 +118,7 @@ func NewSearchView(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *
 	}
 
 	if sv.scroll != nil {
+		sv.scroll.SetFocusable(false)
 		sv.scroll.SetPolicy(gtk.PolicyNeverValue, gtk.PolicyAutomaticValue)
 		sv.scroll.SetMinContentHeight(200)
 		sv.scroll.SetMaxContentHeight(400)
@@ -246,6 +254,9 @@ func (sv *SearchView) loadEntries() {
 
 	entries, err := sv.cfg.ListEntries(sv.ctx, entity.EntryTypeUnspecified)
 	if err != nil {
+		gtkutil.IdleAddOnce(func() {
+			sendNotify(sv.ctx, sv.cfg, "Sekeve", "Failed to load entries", port.UrgencyNormal, "dialog-warning")
+		})
 		return
 	}
 
@@ -354,6 +365,7 @@ func (sv *SearchView) buildRow(env *entity.Envelope) *gtk.ListBoxRow {
 		return nil
 	}
 	row.AddCssClass("sekeve-row")
+	row.SetFocusable(false)
 
 	hbox, _ := gtkutil.SafeNewWidget("row-hbox", func() *gtk.Box {
 		return gtk.NewBox(gtk.OrientationHorizontalValue, 8)

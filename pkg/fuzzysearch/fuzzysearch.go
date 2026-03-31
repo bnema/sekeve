@@ -19,15 +19,18 @@ type Match struct {
 //   - consecutive character matches (+5 each)
 //   - prefix matches (+20)
 func Score(query, target string) int {
-	q := strings.ToLower(query)
-	t := strings.ToLower(target)
+	qStr := strings.ToLower(query)
+	tStr := strings.ToLower(target)
 
-	if q == "" {
+	if qStr == "" {
 		return 0
 	}
-	if q == t {
+	if qStr == tStr {
 		return 1000
 	}
+
+	q := []rune(qStr)
+	t := []rune(tStr)
 
 	score := 0
 	qi := 0
@@ -36,7 +39,7 @@ func Score(query, target string) int {
 	for ti := 0; ti < len(t) && qi < len(q); ti++ {
 		atBoundary := ti == 0
 		if ti > 0 {
-			prev := rune(t[ti-1])
+			prev := t[ti-1]
 			atBoundary = !unicode.IsLetter(prev) && !unicode.IsDigit(prev)
 		}
 

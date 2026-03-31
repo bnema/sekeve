@@ -8,7 +8,6 @@ import (
 
 // SearchOpts holds criteria for filtering vault entries.
 type SearchOpts struct {
-	ID     string
 	Domain string
 	Email  string
 	Query  string // fuzzy search across name, site, username
@@ -33,9 +32,7 @@ func MatchesOpts(e *entity.Envelope, opts SearchOpts) bool {
 		return strings.Contains(site, domain)
 	}
 	if opts.Email != "" {
-		username := strings.ToLower(e.Meta["username"])
-		email := strings.ToLower(opts.Email)
-		return strings.EqualFold(username, email)
+		return strings.EqualFold(e.Meta["username"], opts.Email)
 	}
 	if opts.Query != "" {
 		q := strings.ToLower(opts.Query)

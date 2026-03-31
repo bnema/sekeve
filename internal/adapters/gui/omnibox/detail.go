@@ -163,7 +163,9 @@ func (dv *DetailView) buildForm(plaintext []byte) {
 
 func (dv *DetailView) buildLoginDetail(plaintext []byte) {
 	var login entity.Login
-	_ = json.Unmarshal(plaintext, &login)
+	if err := json.Unmarshal(plaintext, &login); err != nil {
+		sendNotify(dv.ctx, dv.cfg, "Sekeve", "Failed to parse entry data", port.UrgencyNormal, "dialog-warning")
+	}
 
 	dv.loginSite = widget.NewLabeledEntry("Site", "https://example.com")
 	if dv.loginSite.Entry != nil {
@@ -216,7 +218,9 @@ func (dv *DetailView) buildLoginDetail(plaintext []byte) {
 
 func (dv *DetailView) buildNoteDetail(plaintext []byte) {
 	var note entity.Note
-	_ = json.Unmarshal(plaintext, &note)
+	if err := json.Unmarshal(plaintext, &note); err != nil {
+		sendNotify(dv.ctx, dv.cfg, "Sekeve", "Failed to parse entry data", port.UrgencyNormal, "dialog-warning")
+	}
 
 	dv.noteName = widget.NewLabeledEntry("Name", "My note")
 	if dv.noteName.Entry != nil {
@@ -283,7 +287,9 @@ func (dv *DetailView) buildNoteDetail(plaintext []byte) {
 
 func (dv *DetailView) buildSecretDetail(plaintext []byte) {
 	var secret entity.Secret
-	_ = json.Unmarshal(plaintext, &secret)
+	if err := json.Unmarshal(plaintext, &secret); err != nil {
+		sendNotify(dv.ctx, dv.cfg, "Sekeve", "Failed to parse entry data", port.UrgencyNormal, "dialog-warning")
+	}
 
 	dv.secretName = widget.NewLabeledEntry("Name", "API key name")
 	if dv.secretName.Entry != nil {

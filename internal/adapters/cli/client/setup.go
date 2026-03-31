@@ -99,6 +99,8 @@ func findLayerShellLib() string {
 		"/usr/lib64/libgtk4-layer-shell.so.0",
 		"/usr/lib/x86_64-linux-gnu/libgtk4-layer-shell.so.0",
 		"/usr/lib/aarch64-linux-gnu/libgtk4-layer-shell.so.0",
+		"/usr/local/lib/libgtk4-layer-shell.so.0",
+		"/usr/local/lib64/libgtk4-layer-shell.so.0",
 		"/app/lib/libgtk4-layer-shell.so.0",
 	} {
 		if _, err := os.Stat(p); err == nil {

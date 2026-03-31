@@ -15,6 +15,7 @@ import (
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/bnema/sekeve/internal/port"
+	"github.com/bnema/sekeve/pkg/gtkutil"
 	lsh "github.com/bnema/sekeve/pkg/layershell"
 )
 
@@ -35,6 +36,8 @@ func PromptGUI(ctx context.Context, validate port.PINValidateFunc, css string) e
 	app := gtk.NewApplication(&appID, gio.GApplicationNonUniqueValue)
 
 	resetCh := make(chan struct{}, 1)
+
+	var callbacks []interface{}
 
 	activateCb := func(gio.Application) {
 		window := gtk.NewApplicationWindow(app)
@@ -119,6 +122,7 @@ func PromptGUI(ctx context.Context, validate port.PINValidateFunc, css string) e
 				glib.IdleAddOnce(&fn, 0)
 			}()
 		}
+		gtkutil.RetainCallback(&callbacks, activateEntryCb)
 		entry.ConnectActivate(&activateEntryCb)
 
 		vbox.Append(&label.Widget)
@@ -134,6 +138,7 @@ func PromptGUI(ctx context.Context, validate port.PINValidateFunc, css string) e
 			}
 			return false
 		}
+		gtkutil.RetainCallback(&callbacks, keyPressedCb)
 		keyCtrl.ConnectKeyPressed(&keyPressedCb)
 		window.AddController(&keyCtrl.EventController)
 
@@ -141,11 +146,13 @@ func PromptGUI(ctx context.Context, validate port.PINValidateFunc, css string) e
 			app.Quit()
 			return true
 		}
+		gtkutil.RetainCallback(&callbacks, closeRequestCb)
 		window.ConnectCloseRequest(&closeRequestCb)
 
 		window.Show()
 		entry.GrabFocus()
 	}
+	gtkutil.RetainCallback(&callbacks, activateCb)
 	app.ConnectActivate(&activateCb)
 
 	done := make(chan struct{})

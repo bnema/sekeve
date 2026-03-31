@@ -322,6 +322,7 @@ func (o *Omnibox) openDetail() {
 	go func() {
 		full, err := o.cfg.GetEntry(o.ctx, env.ID)
 		if err != nil {
+			sendNotify(o.ctx, o.cfg, "Sekeve", "Failed to fetch entry", port.UrgencyCritical, "dialog-error")
 			return
 		}
 
@@ -385,9 +386,6 @@ func (o *Omnibox) rebuildFocusRing() {
 	default: // search mode
 		if o.search != nil && o.search.entry != nil {
 			widgets = append(widgets, &focusableWidget{&o.search.entry.Widget})
-		}
-		if o.search != nil && o.search.listBox != nil {
-			widgets = append(widgets, &focusableWidget{&o.search.listBox.Widget})
 		}
 		// Add mode tabs (Search, Add) to focus ring so Tab cycles through them.
 		for i := 0; i < o.modeBar.Len(); i++ {
