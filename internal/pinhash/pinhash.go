@@ -1,4 +1,4 @@
-package crypto
+package pinhash
 
 import (
 	"crypto/rand"
@@ -16,8 +16,8 @@ const (
 	pinSaltLen   = 16
 )
 
-// HashPIN returns an argon2id hash and random salt for the given PIN.
-func HashPIN(pin string) (hash, salt []byte, err error) {
+// Hash returns an argon2id hash and random salt for the given PIN.
+func Hash(pin string) (hash, salt []byte, err error) {
 	if pin == "" {
 		return nil, nil, fmt.Errorf("PIN must not be empty")
 	}
@@ -29,8 +29,8 @@ func HashPIN(pin string) (hash, salt []byte, err error) {
 	return hash, salt, nil
 }
 
-// VerifyPIN checks a PIN against a stored hash and salt.
-func VerifyPIN(pin string, hash, salt []byte) bool {
+// Verify checks a PIN against a stored hash and salt.
+func Verify(pin string, hash, salt []byte) bool {
 	computed := argon2.IDKey([]byte(pin), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
 	return subtle.ConstantTimeCompare(computed, hash) == 1
 }

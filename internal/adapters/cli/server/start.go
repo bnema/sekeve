@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	adaptercrypto "github.com/bnema/sekeve/internal/adapters/crypto"
 	grpcadapter "github.com/bnema/sekeve/internal/adapters/grpc"
 	"github.com/bnema/sekeve/internal/adapters/storage"
 	"github.com/bnema/sekeve/internal/port"
@@ -44,7 +45,8 @@ func NewStartCmd() *cobra.Command {
 			}
 
 			authManager := grpcadapter.NewAuthManager(pubKey)
-			server := grpcadapter.NewServer(ctx, store, authManager)
+			crypto := adaptercrypto.NewGPGAdapter()
+			server := grpcadapter.NewServer(ctx, store, authManager, crypto)
 
 			log.Info().Str("addr", addr).Msg("starting gRPC server")
 			if err := server.Serve(ctx, addr); err != nil {

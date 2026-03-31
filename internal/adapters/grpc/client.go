@@ -10,9 +10,11 @@ import (
 	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	sekevev1 "github.com/bnema/sekeve/gen/proto/sekeve/v1"
 )
@@ -119,15 +121,33 @@ func (c *Client) SetPIN(ctx context.Context, currentPIN, newPIN string) error {
 }
 
 func (c *Client) Unlock(ctx context.Context, unlockTicket, pin string) (string, time.Time, error) {
-	log := zerowrap.FromCtx(ctx)
 	resp, err := c.client.Unlock(ctx, &sekevev1.UnlockRequest{
 		UnlockTicket: unlockTicket,
 		Pin:          pin,
 	})
 	if err != nil {
-		return "", time.Time{}, log.WrapErr(err, "failed to unlock")
+		return "", time.Time{}, translateUnlockError(err)
 	}
 	return resp.Token, time.Unix(resp.ExpiresAt, 0), nil
+}
+
+// translateUnlockError maps gRPC status codes to domain-level errors
+// so callers don't need to import gRPC packages.
+func translateUnlockError(err error) error {
+	st, ok := status.FromError(err)
+	if !ok {
+		return fmt.Errorf("unlock failed: %w", err)
+	}
+	switch st.Code() {
+	case codes.PermissionDenied:
+		return port.ErrPermissionDenied
+	case codes.Unauthenticated:
+		return port.ErrSessionExpired
+	case codes.ResourceExhausted:
+		return fmt.Errorf("%w: %s", port.ErrRateLimited, st.Message())
+	default:
+		return fmt.Errorf("unlock failed: %w", err)
+	}
 }
 
 func (c *Client) CreateEntry(ctx context.Context, envelope *entity.Envelope) (string, error) {

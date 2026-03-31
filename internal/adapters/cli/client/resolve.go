@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/domain/entity"
+	"github.com/bnema/sekeve/internal/domain/service"
 )
 
 // resolveOpts holds the flags for entry resolution.
@@ -32,7 +33,12 @@ func resolveEntry(entries []*entity.Envelope, opts resolveOpts) (*entity.Envelop
 		return nil, fmt.Errorf("no entry found with id %q", opts.ID)
 	}
 
-	matched := filterEntries(entries, opts)
+	searchOpts := service.SearchOpts{
+		Domain: opts.Domain,
+		Email:  opts.Email,
+		Query:  opts.Query,
+	}
+	matched := service.FilterEntries(entries, searchOpts)
 
 	switch len(matched) {
 	case 0:
@@ -45,39 +51,6 @@ func resolveEntry(entries []*entity.Envelope, opts resolveOpts) (*entity.Envelop
 		}
 		return pickEntry(matched)
 	}
-}
-
-// filterEntries returns entries matching the given search criteria.
-func filterEntries(entries []*entity.Envelope, opts resolveOpts) []*entity.Envelope {
-	var matched []*entity.Envelope
-	for _, e := range entries {
-		if matchesOpts(e, opts) {
-			matched = append(matched, e)
-		}
-	}
-	return matched
-}
-
-// matchesOpts checks if an entry matches the given search options.
-func matchesOpts(e *entity.Envelope, opts resolveOpts) bool {
-	if opts.Domain != "" {
-		site := strings.ToLower(e.Meta["site"])
-		domain := strings.ToLower(opts.Domain)
-		return strings.Contains(site, domain)
-	}
-	if opts.Email != "" {
-		username := strings.ToLower(e.Meta["username"])
-		email := strings.ToLower(opts.Email)
-		return strings.EqualFold(username, email)
-	}
-	if opts.Query != "" {
-		q := strings.ToLower(opts.Query)
-		name := strings.ToLower(e.Name)
-		site := strings.ToLower(e.Meta["site"])
-		username := strings.ToLower(e.Meta["username"])
-		return strings.Contains(name, q) || strings.Contains(site, q) || strings.Contains(username, q)
-	}
-	return false
 }
 
 // pickEntry shows an interactive picker using bubbletea and returns the selected entry.

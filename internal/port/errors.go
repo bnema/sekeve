@@ -10,6 +10,9 @@ var (
 	ErrAlreadyExists      = errors.New("entry already exists")
 	ErrPINPromptCancelled = errors.New("PIN prompt cancelled")
 	ErrNoPINInputMethod   = errors.New("no PIN input method available (no GUI display and no TTY)")
+	ErrPermissionDenied   = errors.New("permission denied")
+	ErrSessionExpired     = errors.New("session expired")
+	ErrRateLimited        = errors.New("rate limited")
 )
 
 // PINFatalError wraps an error to signal that the PIN prompt should close

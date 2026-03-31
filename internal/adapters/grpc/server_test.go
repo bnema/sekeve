@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	sekevev1 "github.com/bnema/sekeve/gen/proto/sekeve/v1"
+	adaptercrypto "github.com/bnema/sekeve/internal/adapters/crypto"
 	grpcadapter "github.com/bnema/sekeve/internal/adapters/grpc"
 	"github.com/bnema/sekeve/internal/adapters/storage"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +30,8 @@ func setupTestServerWithAuth(t *testing.T) (sekevev1.SekeveClient, *grpcadapter.
 	auth := grpcadapter.NewAuthManager([]byte("test-public-key"))
 	auth.SetTestToken("test-token")
 
-	srv := grpcadapter.NewServer(ctx, store, auth)
+	crypto := adaptercrypto.NewGPGAdapter()
+	srv := grpcadapter.NewServer(ctx, store, auth, crypto)
 
 	lis := bufconn.Listen(1024 * 1024)
 	go func() {

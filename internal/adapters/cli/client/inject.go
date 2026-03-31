@@ -12,6 +12,7 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/styles"
 	"github.com/bnema/sekeve/internal/app"
 	"github.com/bnema/sekeve/internal/domain/entity"
+	"github.com/bnema/sekeve/internal/domain/service"
 	"github.com/spf13/cobra"
 )
 
@@ -137,7 +138,7 @@ func resolveRefs(ctx context.Context, clientApp *app.ClientApp, allLines []envLi
 		ref := parseSekeveRef(allLines[i].Value)
 
 		// Use filterEntries directly to avoid interactive picker
-		matched := filterEntries(all, resolveOpts{Query: ref.Query})
+		matched := service.FilterEntries(all, service.SearchOpts{Query: ref.Query})
 		if len(matched) == 0 {
 			return fmt.Errorf("resolve %s=%s: no entries found matching %q", allLines[i].Key, allLines[i].Value, ref.Query)
 		}

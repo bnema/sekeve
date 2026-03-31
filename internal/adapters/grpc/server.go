@@ -12,8 +12,8 @@ import (
 	"unicode"
 
 	sekevev1 "github.com/bnema/sekeve/gen/proto/sekeve/v1"
-	adaptercrypto "github.com/bnema/sekeve/internal/adapters/crypto"
 	"github.com/bnema/sekeve/internal/domain/entity"
+	"github.com/bnema/sekeve/internal/pinhash"
 	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
 	"google.golang.org/grpc"
@@ -30,19 +30,18 @@ type Server struct {
 	grpcServer *grpc.Server
 	storage    port.StoragePort
 	auth       *AuthManager
-	gpg        *adaptercrypto.GPGAdapter
+	gpg        port.ServerCryptoPort
 }
 
 // NewServer creates a new Server with the auth interceptor registered.
-func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager) *Server {
+func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager, crypto port.ServerCryptoPort) *Server {
 	log := zerowrap.FromCtx(ctx)
 	log.Info().Msg("creating gRPC server")
 
-	gpg := adaptercrypto.NewGPGAdapter()
 	s := &Server{
 		storage: storage,
 		auth:    auth,
-		gpg:     gpg,
+		gpg:     crypto,
 	}
 
 	// Check if PIN is already configured so auth interceptor knows about it.
@@ -51,7 +50,7 @@ func NewServer(ctx context.Context, storage port.StoragePort, auth *AuthManager)
 	}
 
 	// Extract fingerprint from stored public key for authentication validation.
-	fp, err := gpg.FingerprintFromArmored(ctx, auth.GPGPublicKey())
+	fp, err := crypto.FingerprintFromArmored(ctx, auth.GPGPublicKey())
 	if err != nil {
 		log.Warn().Err(err).Msg("could not extract fingerprint from stored key")
 	} else {
@@ -312,14 +311,14 @@ func (s *Server) SetPIN(ctx context.Context, req *sekevev1.SetPINRequest) (*seke
 		if err := s.auth.CheckPINRateLimit(); err != nil {
 			return nil, status.Errorf(codes.ResourceExhausted, "%v", err)
 		}
-		if !adaptercrypto.VerifyPIN(req.CurrentPin, existingHash, existingSalt) {
+		if !pinhash.Verify(req.CurrentPin, existingHash, existingSalt) {
 			s.auth.RecordPINFailure()
 			return nil, status.Errorf(codes.PermissionDenied, "incorrect current PIN")
 		}
 		s.auth.ResetPINFailures()
 	}
 
-	hash, salt, err := adaptercrypto.HashPIN(req.NewPin)
+	hash, salt, err := pinhash.Hash(req.NewPin)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to hash PIN: %v", err)
 	}
@@ -353,7 +352,7 @@ func (s *Server) Unlock(ctx context.Context, req *sekevev1.UnlockRequest) (*seke
 		s.auth.RevokeSession(token)
 		return nil, status.Errorf(codes.FailedPrecondition, "no PIN configured")
 	}
-	if !adaptercrypto.VerifyPIN(req.Pin, hash, salt) {
+	if !pinhash.Verify(req.Pin, hash, salt) {
 		s.auth.RecordPINFailure()
 		// Revoke the just-issued session since PIN was wrong.
 		s.auth.RevokeSession(token)

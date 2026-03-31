@@ -6,6 +6,7 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/cli/styles"
 	"github.com/bnema/sekeve/internal/domain/entity"
+	"github.com/bnema/sekeve/internal/domain/service"
 	"github.com/spf13/cobra"
 )
 
@@ -43,11 +44,11 @@ Examples:
 				return err
 			}
 
-			opts := resolveOpts{Domain: domain, Email: email}
+			searchOpts := service.SearchOpts{Domain: domain, Email: email}
 			if len(args) > 0 {
-				opts.Query = args[0]
+				searchOpts.Query = args[0]
 			}
-			matched := filterEntries(all, opts)
+			matched := service.FilterEntries(all, searchOpts)
 
 			if cliconfig.JSONOutput {
 				return styles.RenderJSON(os.Stdout, matched)

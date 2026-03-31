@@ -4,20 +4,14 @@ package cliconfig
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
-	"runtime/secret"
-	"sync"
-	"time"
 
 	"github.com/bnema/sekeve/internal/app"
 	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/zerowrap"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // CLI flag vars — overrides for config file values.
@@ -79,6 +73,23 @@ func WithGUI(ctx context.Context, g port.GUIPort) context.Context {
 	return context.WithValue(ctx, guiKey, g)
 }
 
+const cryptoKey ctxKey = "crypto"
+
+// CryptoFromCtx retrieves the CryptoPort stored in the context.
+// Panics if WithCrypto was not called before ConnectAndAuth.
+func CryptoFromCtx(ctx context.Context) port.CryptoPort {
+	c, ok := ctx.Value(cryptoKey).(port.CryptoPort)
+	if !ok {
+		panic("CryptoFromCtx: no CryptoPort in context; ensure WithCrypto was called before ConnectAndAuth")
+	}
+	return c
+}
+
+// WithCrypto returns a new context with the given CryptoPort embedded.
+func WithCrypto(ctx context.Context, c port.CryptoPort) context.Context {
+	return context.WithValue(ctx, cryptoKey, c)
+}
+
 const notifyKey ctxKey = "notify"
 
 // NotifyFromCtx retrieves the NotificationPort stored in the context.
@@ -120,104 +131,18 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		return nil, fmt.Errorf("client not configured; run 'sekeve init' first")
 	}
 
-	clientApp, err := app.NewClientApp(ctx, cfg)
+	crypto := CryptoFromCtx(ctx)
+	clientApp, err := app.NewClientApp(ctx, cfg, crypto)
 	if err != nil {
 		return nil, log.WrapErr(err, "failed to connect")
 	}
 
-	// Try cached session first.
-	token, err := cfg.SessionToken(ctx)
-	if err == nil {
-		clientApp.Sync.SetToken(token)
-		return clientApp, nil
+	prompt := PINPromptFromCtx(ctx)
+	notify := NotifyFromCtx(ctx)
+	if err := clientApp.AuthenticateSession(ctx, prompt, notify); err != nil {
+		_ = clientApp.Close(ctx)
+		return nil, err
 	}
 
-	// No valid cached session — authenticate via GPG challenge-response.
-	authResult, err := clientApp.Vault.Authenticate(ctx)
-	if err != nil {
-		if closeErr := clientApp.Close(ctx); closeErr != nil {
-			log.Warn().Err(closeErr).Msg("failed to close client app after auth failure")
-		}
-		return nil, log.WrapErr(err, "authentication failed")
-	}
-
-	cacheSession := func(token string, expiresAt time.Time) {
-		clientApp.Sync.SetToken(token)
-		if saveErr := cfg.SaveSessionToken(ctx, token, int64(time.Until(expiresAt).Seconds())); saveErr != nil {
-			log.Warn().Err(saveErr).Msg("failed to cache session")
-		}
-	}
-
-	if authResult.RequiresPIN {
-		prompt := PINPromptFromCtx(ctx)
-		var unlockErr error
-
-		var mu sync.Mutex // protects attempts and authResult across goroutines
-		attempts := 0
-		validate := func(vctx context.Context, pin string) error {
-			// Wrap in secret.Do because this callback may be invoked from a
-			// goroutine spawned by the GUI adapter (GTK event loop), which
-			// is not covered by the caller's secret.Do scope.
-			var result error
-			secret.Do(func() {
-				mu.Lock()
-				defer mu.Unlock()
-
-				attempts++
-				token, expiresAt, vErr := clientApp.Sync.Unlock(vctx, authResult.UnlockTicket, pin)
-				if vErr == nil {
-					cacheSession(token, expiresAt)
-					return
-				}
-
-				st, ok := status.FromError(vErr)
-				if !ok {
-					result = &port.PINFatalError{Err: vErr}
-					return
-				}
-
-				switch st.Code() {
-				case codes.PermissionDenied:
-					if attempts >= 3 {
-						result = &port.PINFatalError{Err: fmt.Errorf("too many failed PIN attempts")}
-						return
-					}
-					// User-facing message, intentionally capitalized.
-					result = fmt.Errorf("%s", port.DefaultPINError)
-				case codes.Unauthenticated:
-					authRes, authErr := clientApp.Vault.Authenticate(vctx)
-					if authErr != nil {
-						result = &port.PINFatalError{Err: fmt.Errorf("re-authentication failed: %w", authErr)}
-						return
-					}
-					authResult = authRes
-					attempts = 0
-					result = fmt.Errorf("Session expired, enter PIN again") //nolint:staticcheck // user-facing message
-				case codes.ResourceExhausted:
-					result = fmt.Errorf("%s", st.Message())
-				default:
-					result = &port.PINFatalError{Err: vErr}
-				}
-			})
-			return result
-		}
-
-		unlockErr = prompt.PromptForPIN(ctx, validate)
-
-		if unlockErr != nil {
-			_ = clientApp.Close(ctx)
-			if errors.Is(unlockErr, port.ErrPINPromptCancelled) {
-				return nil, unlockErr
-			}
-			if !prompt.IsTTY() {
-				_ = NotifyFromCtx(ctx).Notify(ctx, "Sekeve", "PIN unlock failed", port.UrgencyCritical, "dialog-error")
-			}
-			return nil, log.WrapErr(unlockErr, "unlock failed")
-		}
-
-		return clientApp, nil
-	}
-
-	cacheSession(authResult.Token, authResult.ExpiresAt)
 	return clientApp, nil
 }
