@@ -28,6 +28,9 @@ type OmniboxConfig struct {
 	DecryptAndUse func(ctx context.Context, ciphertext []byte, fn func(plaintext []byte)) error
 	AddEntry      func(ctx context.Context, env *entity.Envelope) error
 	UpdateEntry   func(ctx context.Context, env *entity.Envelope) error
+
+	// Notify sends a desktop notification. Nil means notifications are silently dropped.
+	Notify func(ctx context.Context, summary, body string, urgency Urgency, icon string)
 }
 
 // GUIPort abstracts the graphical user interface.

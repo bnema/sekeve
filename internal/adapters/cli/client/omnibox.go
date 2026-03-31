@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"os"
 
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
@@ -42,6 +43,7 @@ Bind this to a keyboard shortcut (e.g. Ctrl+Super+P) in your compositor.`,
 
 			// Show omnibox (defaults to Search / All).
 			guiPort := cliconfig.GUIFromCtx(ctx)
+			notifier := cliconfig.NotifyFromCtx(ctx)
 			omniCfg := port.OmniboxConfig{
 				Mode:          port.OmniboxModeSearch,
 				Category:      entity.EntryTypeUnspecified, // All
@@ -50,6 +52,9 @@ Bind this to a keyboard shortcut (e.g. Ctrl+Super+P) in your compositor.`,
 				DecryptAndUse: clientApp.Vault.DecryptAndUse,
 				AddEntry:      clientApp.Vault.AddEntry,
 				UpdateEntry:   clientApp.Vault.UpdateEntry,
+				Notify: func(nctx context.Context, summary, body string, urgency port.Urgency, icon string) {
+					_ = notifier.Notify(nctx, summary, body, urgency, icon)
+				},
 			}
 
 			if err := guiPort.ShowOmnibox(ctx, omniCfg); err != nil {

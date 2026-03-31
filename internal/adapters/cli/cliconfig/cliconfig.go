@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"runtime/secret"
 	"sync"
 	"time"
@@ -80,6 +79,22 @@ func WithGUI(ctx context.Context, g port.GUIPort) context.Context {
 	return context.WithValue(ctx, guiKey, g)
 }
 
+const notifyKey ctxKey = "notify"
+
+// NotifyFromCtx retrieves the NotificationPort stored in the context.
+func NotifyFromCtx(ctx context.Context) port.NotificationPort {
+	n, ok := ctx.Value(notifyKey).(port.NotificationPort)
+	if !ok {
+		panic("NotifyFromCtx: no NotificationPort in context; ensure WithNotify was called")
+	}
+	return n
+}
+
+// WithNotify returns a new context with the given NotificationPort embedded.
+func WithNotify(ctx context.Context, n port.NotificationPort) context.Context {
+	return context.WithValue(ctx, notifyKey, n)
+}
+
 // ReadPassword prints the prompt to stderr, reads a password without echo, and returns it.
 func ReadPassword(prompt string) (string, error) {
 	fmt.Fprint(os.Stderr, prompt)
@@ -89,12 +104,6 @@ func ReadPassword(prompt string) (string, error) {
 		return "", err
 	}
 	return string(b), nil
-}
-
-// SendNotification sends a best-effort desktop notification via notify-send (Linux only).
-// Silently ignored on systems where notify-send is unavailable.
-func SendNotification(ctx context.Context, body string) {
-	_ = exec.CommandContext(ctx, "notify-send", "-a", "sekeve", "-i", "dialog-password", "Sekeve", body).Run()
 }
 
 func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, error) {
@@ -196,7 +205,9 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 				return nil, unlockErr
 			}
 			if !prompt.IsTTY() {
-				SendNotification(ctx, "PIN unlock failed")
+				if n, ok := ctx.Value(notifyKey).(port.NotificationPort); ok {
+					_ = n.Notify(ctx, "Sekeve", "PIN unlock failed", port.UrgencyCritical, "dialog-error")
+				}
 			}
 			return nil, log.WrapErr(unlockErr, "unlock failed")
 		}

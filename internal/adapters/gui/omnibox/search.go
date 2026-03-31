@@ -441,18 +441,29 @@ func (sv *SearchView) copyEntryAtIndex(listIndex int) {
 		// Re-fetch for fresh payload.
 		full, err := sv.cfg.GetEntry(sv.ctx, env.ID)
 		if err != nil {
+			sv.notify("Sekeve", "Failed to fetch entry", port.UrgencyCritical, "dialog-error")
 			return
 		}
 
+		var copyOK bool
 		sv.cfg.DecryptAndUse(sv.ctx, full.Payload, func(plaintext []byte) {
 			value := extractMainValue(full.Type, plaintext)
 			if value == "" {
+				sv.notify("Sekeve", "Entry has no copyable value", port.UrgencyNormal, "dialog-warning")
 				return
 			}
 			if err := clipboard.Copy(sv.ctx, value); err != nil {
+				sv.notify("Sekeve", fmt.Sprintf("Clipboard copy failed: %v", err), port.UrgencyCritical, "dialog-error")
 				fmt.Fprintf(os.Stderr, "sekeve: %v\n", err)
+				return
 			}
+			copyOK = true
+			sv.notify("Sekeve", fmt.Sprintf("Copied %s to clipboard", full.Name), port.UrgencyLow, "")
 		})
+
+		if !copyOK {
+			return
+		}
 
 		// Close overlay on the GTK thread.
 		gtkutil.IdleAddOnce(func() {
@@ -461,6 +472,13 @@ func (sv *SearchView) copyEntryAtIndex(listIndex int) {
 			}
 		})
 	}()
+}
+
+// notify sends a desktop notification if the callback is configured.
+func (sv *SearchView) notify(summary, body string, urgency port.Urgency, icon string) {
+	if sv.cfg.Notify != nil {
+		sv.cfg.Notify(sv.ctx, summary, body, urgency, icon)
+	}
 }
 
 // extractMainValue unmarshals the plaintext based on entry type and

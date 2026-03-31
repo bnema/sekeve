@@ -9,6 +9,7 @@ import (
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/cli/styles"
 	"github.com/bnema/sekeve/internal/domain/entity"
+	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/sekeve/pkg/clipboard"
 	"github.com/bnema/zerowrap"
 	"github.com/spf13/cobra"
@@ -117,7 +118,8 @@ func NewDmenuCmd() *cobra.Command {
 						return
 					}
 					log.Debug().Msg("clipboard copy succeeded")
-					cliconfig.SendNotification(ctx, "Password copied to clipboard")
+					notifier := cliconfig.NotifyFromCtx(ctx)
+					_ = notifier.Notify(ctx, "Sekeve", "Copied to clipboard", port.UrgencyLow, "")
 				})
 
 				if decryptErr != nil {

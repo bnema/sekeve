@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/bnema/sekeve/internal/adapters/cli/cliconfig"
 	"github.com/bnema/sekeve/internal/adapters/gui"
+	"github.com/bnema/sekeve/internal/adapters/notification"
 	"github.com/spf13/cobra"
 )
 
@@ -20,6 +21,10 @@ func WithGUI(cmd *cobra.Command) *cobra.Command {
 		guiAdapter := gui.NewGUIAdapter()
 		ctx = cliconfig.WithPINPrompt(ctx, guiAdapter)
 		ctx = cliconfig.WithGUI(ctx, guiAdapter)
+
+		notifier, _ := notification.NewDBus()
+		ctx = cliconfig.WithNotify(ctx, notifier)
+
 		cmd.SetContext(ctx)
 		return nil
 	}

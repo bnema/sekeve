@@ -302,9 +302,10 @@ func (av *AddView) doSave() {
 	go func() {
 		err := av.cfg.AddEntry(av.ctx, env)
 		if err != nil {
-			fmt.Printf("sekeve: add entry failed: %v\n", err)
+			av.notify("Sekeve", fmt.Sprintf("Failed to save entry: %v", err), port.UrgencyCritical, "dialog-error")
 			return
 		}
+		av.notify("Sekeve", fmt.Sprintf("Saved %s", env.Name), port.UrgencyLow, "")
 		gtkutil.IdleAddOnce(func() {
 			if av.onDone != nil {
 				av.onDone()
@@ -408,6 +409,13 @@ func (av *AddView) collectSecret() (*entity.Envelope, bool) {
 		Payload: payload,
 	}
 	return env, true
+}
+
+// notify sends a desktop notification if the callback is configured.
+func (av *AddView) notify(summary, body string, urgency port.Urgency, icon string) {
+	if av.cfg.Notify != nil {
+		av.cfg.Notify(av.ctx, summary, body, urgency, icon)
+	}
 }
 
 // getTextViewContent extracts text from a TextView's buffer.
