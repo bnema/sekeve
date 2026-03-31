@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bnema/puregotk/v4/gtk"
+	"github.com/bnema/sekeve/internal/adapters/gui/widget"
 	"github.com/bnema/sekeve/internal/domain/entity"
 	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/sekeve/pkg/clipboard"
@@ -369,14 +370,11 @@ func (sv *SearchView) buildRow(env *entity.Envelope) *gtk.ListBoxRow {
 		return row
 	}
 
-	// Type icon label.
-	iconText := typeIcon(env.Type)
-	iconLabel, _ := gtkutil.SafeNewWidget("row-icon", func() *gtk.Label {
-		return gtk.NewLabel(&iconText)
-	})
-	if iconLabel != nil {
-		iconLabel.AddCssClass(typeIconClass(env.Type))
-		hbox.Append(&iconLabel.Widget)
+	// Type icon (SVG).
+	svgTpl, color := typeIconSVG(env.Type)
+	iconImg := widget.NewIconImage(svgTpl, color)
+	if iconImg != nil {
+		hbox.Append(&iconImg.Widget)
 	}
 
 	// Entry name — strip parenthesized username for logins since meta shows it.
@@ -492,29 +490,16 @@ func extractMainValue(t entity.EntryType, plaintext []byte) string {
 	}
 }
 
-func typeIcon(t entity.EntryType) string {
+func typeIconSVG(t entity.EntryType) (svgTemplate, color string) {
 	switch t {
 	case entity.EntryTypeLogin:
-		return "\U0001F511" // key emoji
+		return widget.IconKey, widget.ColorLogin
 	case entity.EntryTypeNote:
-		return "\U0001F4C4" // page emoji
+		return widget.IconFileText, widget.ColorNote
 	case entity.EntryTypeSecret:
-		return "\U0001F512" // lock emoji
+		return widget.IconLock, widget.ColorSecret
 	default:
-		return "\u2022" // bullet
-	}
-}
-
-func typeIconClass(t entity.EntryType) string {
-	switch t {
-	case entity.EntryTypeLogin:
-		return "sekeve-icon-login"
-	case entity.EntryTypeNote:
-		return "sekeve-icon-note"
-	case entity.EntryTypeSecret:
-		return "sekeve-icon-secret"
-	default:
-		return "sekeve-icon-search"
+		return widget.IconSearch, widget.ColorSearch
 	}
 }
 
