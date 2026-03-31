@@ -49,6 +49,16 @@ window {
     color: #0f1a16;
 }
 
+.sekeve-tab:focus {
+    border: 1px solid #34d399;
+    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.2);
+}
+
+button:focus {
+    border: 1px solid #34d399;
+    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.2);
+}
+
 .sekeve-category-bar {
     border-bottom: 1px solid #1a3028;
     padding: 6px 10px;
@@ -88,6 +98,10 @@ window {
 .sekeve-search-row entry:focus, .sekeve-search-row searchentry:focus {
     border: none;
     box-shadow: none;
+}
+
+.sekeve-search-row:focus-within {
+    border-bottom-color: #34d399;
 }
 
 entry, passwordentry {
@@ -172,6 +186,20 @@ row, list row, listbox row {
     padding: 1px 5px;
     border-radius: 3px;
     font-size: 11px;
+}
+
+.sekeve-quit-btn {
+    background: transparent;
+    border: 1px solid #1a3028;
+    border-radius: 4px;
+    color: #4a7a66;
+    padding: 2px 8px;
+    font-size: 11px;
+}
+
+.sekeve-quit-btn:hover {
+    color: #E5484D;
+    border-color: #E5484D;
 }
 
 .sekeve-btn-cancel {

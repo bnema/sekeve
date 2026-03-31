@@ -6,6 +6,7 @@ package omnibox
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/bnema/puregotk/v4/gdk"
 	"github.com/bnema/puregotk/v4/gtk"
@@ -14,7 +15,6 @@ import (
 	"github.com/bnema/sekeve/internal/port"
 	"github.com/bnema/sekeve/pkg/focusring"
 	"github.com/bnema/sekeve/pkg/gtkutil"
-	"github.com/bnema/zerowrap"
 )
 
 // Omnibox is the main container widget with L1/L2 tabs, a search view,
@@ -111,7 +111,7 @@ func New(ctx context.Context, cfg port.OmniboxConfig, quitFn func()) *Omnibox {
 	}
 
 	// --- Footer hints ---
-	footer := buildFooter()
+	footer := buildFooter(quitFn, &o.callbacks)
 	if footer != nil {
 		root.Append(&footer.Widget)
 	}
@@ -163,28 +163,23 @@ func (o *Omnibox) AttachKeyController(window *gtk.Window) {
 	keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, state gdk.ModifierType) bool {
 		ctrl := state&gdk.ControlMaskValue != 0
 
+		fmt.Fprintf(os.Stderr, "sekeve: key pressed: keyval=%d (0x%x) ctrl=%v\n", keyval, keyval, ctrl)
+
 		switch int(keyval) {
 		case gdk.KEY_Escape:
+			fmt.Fprintln(os.Stderr, "sekeve: Escape pressed")
 			return o.handleEscape()
 
 		case gdk.KEY_Tab:
-			log := zerowrap.FromCtx(o.ctx)
+			fmt.Fprintf(os.Stderr, "sekeve: Tab pressed, ring has %d widgets\n", len(o.ring.Widgets()))
 			w := o.ring.Next()
-			if w != nil {
-				log.Debug().Str("widget", fmt.Sprintf("%T", w)).Msg("Tab → focus next")
-			} else {
-				log.Warn().Msg("Tab → ring.Next() returned nil (empty ring?)")
-			}
+			fmt.Fprintf(os.Stderr, "sekeve: Tab → Next() returned %v\n", w)
 			return true
 
 		case gdk.KEY_ISO_Left_Tab: // Shift+Tab
-			log := zerowrap.FromCtx(o.ctx)
+			fmt.Fprintln(os.Stderr, "sekeve: Shift+Tab pressed")
 			w := o.ring.Prev()
-			if w != nil {
-				log.Debug().Str("widget", fmt.Sprintf("%T", w)).Msg("Shift+Tab → focus prev")
-			} else {
-				log.Warn().Msg("Shift+Tab → ring.Prev() returned nil")
-			}
+			fmt.Fprintf(os.Stderr, "sekeve: Shift+Tab → Prev() returned %v\n", w)
 			return true
 
 		case gdk.KEY_1:
@@ -408,8 +403,7 @@ func (o *Omnibox) rebuildFocusRing() {
 			}
 		}
 	}
-	log := zerowrap.FromCtx(o.ctx)
-	log.Debug().Int("count", len(widgets)).Int("mode", o.currentMode).Msg("rebuildFocusRing")
+	fmt.Fprintf(os.Stderr, "sekeve: rebuildFocusRing mode=%d widgets=%d\n", o.currentMode, len(widgets))
 	o.ring.SetWidgets(widgets...)
 }
 
@@ -429,12 +423,15 @@ type focusableWidget struct {
 	w *gtk.Widget
 }
 
-func (f *focusableWidget) GrabFocus()        { f.w.GrabFocus() }
+func (f *focusableWidget) GrabFocus() {
+	ok := f.w.GrabFocus()
+	fmt.Fprintf(os.Stderr, "sekeve: GrabFocus on %p → %v, HasFocus=%v\n", f.w.GoPointer(), ok, f.w.HasFocus())
+}
 func (f *focusableWidget) HasFocus() bool    { return f.w.HasFocus() }
 func (f *focusableWidget) SetVisible(v bool) { f.w.SetVisible(v) }
 func (f *focusableWidget) GetVisible() bool  { return f.w.GetVisible() }
 
-func buildFooter() *gtk.Box {
+func buildFooter(quitFn func(), callbacks *[]interface{}) *gtk.Box {
 	footerBox, _ := gtkutil.SafeNewWidget("footer-box", func() *gtk.Box {
 		return gtk.NewBox(gtk.OrientationHorizontalValue, 14)
 	})
@@ -473,6 +470,32 @@ func buildFooter() *gtk.Box {
 		}
 		footerBox.Append(&hintBox.Widget)
 	}
+
+	// Spacer to push Quit button to the right.
+	spacer, _ := gtkutil.SafeNewWidget("spacer", func() *gtk.Box {
+		return gtk.NewBox(gtk.OrientationHorizontalValue, 0)
+	})
+	if spacer != nil {
+		spacer.SetHexpand(true)
+		footerBox.Append(&spacer.Widget)
+	}
+
+	// Clickable Quit button.
+	quitBtn, _ := gtkutil.SafeNewWidget("quit-btn", func() *gtk.Button {
+		return gtk.NewButtonWithLabel("✕ Quit")
+	})
+	if quitBtn != nil {
+		quitBtn.AddCssClass("sekeve-quit-btn")
+		clickCb := func(_ gtk.Button) {
+			if quitFn != nil {
+				quitFn()
+			}
+		}
+		gtkutil.RetainCallback(callbacks, clickCb)
+		quitBtn.ConnectClicked(&clickCb)
+		footerBox.Append(&quitBtn.Widget)
+	}
+
 	return footerBox
 }
 
