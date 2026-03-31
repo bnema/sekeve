@@ -191,10 +191,12 @@ row, list row, listbox row {
 .sekeve-quit-btn {
     background: transparent;
     border: 1px solid #1a3028;
-    border-radius: 4px;
+    border-radius: 3px;
     color: #4a7a66;
-    padding: 2px 8px;
-    font-size: 11px;
+    padding: 0px 5px;
+    font-size: 10px;
+    min-height: 0;
+    margin: 0;
 }
 
 .sekeve-quit-btn:hover {
