@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -378,9 +379,15 @@ func (sv *SearchView) buildRow(env *entity.Envelope) *gtk.ListBoxRow {
 		hbox.Append(&iconLabel.Widget)
 	}
 
-	// Entry name.
+	// Entry name — strip parenthesized username for logins since meta shows it.
+	displayName := env.Name
+	if env.Type == entity.EntryTypeLogin {
+		if idx := strings.Index(displayName, " ("); idx > 0 {
+			displayName = displayName[:idx]
+		}
+	}
 	nameLabel, _ := gtkutil.SafeNewWidget("row-name", func() *gtk.Label {
-		return gtk.NewLabel(&env.Name)
+		return gtk.NewLabel(&displayName)
 	})
 	if nameLabel != nil {
 		nameLabel.AddCssClass("sekeve-row-name")
