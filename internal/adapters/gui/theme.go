@@ -24,7 +24,7 @@ window {
     background-color: #0f1a16;
     border: 1px solid #1a3028;
     border-radius: 10px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(52, 211, 153, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(245, 158, 11, 0.08);
     font-size: 14px;
     min-width: 37rem;
     max-width: 37rem;
@@ -49,18 +49,18 @@ window {
 }
 
 .sekeve-tab-active {
-    background-color: #1a6a4d;
+    background-color: #c9891a;
     color: #0f1a16;
 }
 
 .sekeve-tab:focus {
-    border: 1px solid #34d399;
-    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.2);
+    border: 1px solid #f59e0b;
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2);
 }
 
 button:focus {
-    border: 1px solid #34d399;
-    box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.2);
+    border: 1px solid #f59e0b;
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2);
 }
 
 .sekeve-category-bar {
@@ -81,8 +81,8 @@ button:focus {
 }
 
 .sekeve-category-active {
-    background-color: rgba(52, 211, 153, 0.12);
-    color: #34d399;
+    background-color: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
 }
 
 .sekeve-search-row {
@@ -106,7 +106,7 @@ button:focus {
 }
 
 .sekeve-search-row:focus-within {
-    border-bottom-color: #34d399;
+    border-bottom-color: #f59e0b;
 }
 
 entry, passwordentry {
@@ -120,8 +120,8 @@ entry, passwordentry {
 
 entry:focus, entry:focus-within,
 passwordentry:focus, passwordentry:focus-within {
-    border-color: #6ee7b7;
-    box-shadow: 0 0 0 1px rgba(110, 231, 183, 0.3);
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3);
 }
 
 textview {
@@ -136,7 +136,7 @@ textview border {
 }
 
 textview:focus border {
-    border-color: #34d399;
+    border-color: #f59e0b;
 }
 
 .sekeve-label {
@@ -161,7 +161,7 @@ row, list row, listbox row {
 }
 
 .sekeve-row:selected, .sekeve-row-selected {
-    background-color: rgba(52, 211, 153, 0.06);
+    background-color: rgba(245, 158, 11, 0.08);
 }
 
 .sekeve-row-name {
@@ -171,7 +171,7 @@ row, list row, listbox row {
 }
 
 .sekeve-row:selected .sekeve-row-name {
-    color: #34d399;
+    color: #f59e0b;
 }
 
 .sekeve-row-meta {
@@ -221,7 +221,7 @@ row, list row, listbox row {
 }
 
 .sekeve-btn-save {
-    background: #1a6a4d;
+    background: #d97706;
     color: #0f1a16;
     border: 1px solid transparent;
     border-radius: 6px;
@@ -239,8 +239,8 @@ row, list row, listbox row {
 }
 
 .sekeve-copy-btn:hover {
-    color: #34d399;
-    border-color: #34d399;
+    color: #f59e0b;
+    border-color: #f59e0b;
 }
 
 .sekeve-icon-login { color: #34d399; }
@@ -253,7 +253,7 @@ row, list row, listbox row {
     background-color: #0f1a16;
     border: 1px solid #1a3028;
     border-radius: 10px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(52, 211, 153, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(245, 158, 11, 0.08);
 }
 
 .sekeve-pin entry, .sekeve-pin passwordentry {
