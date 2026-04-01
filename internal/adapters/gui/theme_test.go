@@ -1,3 +1,5 @@
+//go:build gtk && linux && !nogtk
+
 package gui
 
 import (

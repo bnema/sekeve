@@ -1,21 +1,11 @@
 package gtkutil
 
-import (
-	"fmt"
-
-	"github.com/bnema/puregotk/v4/glib"
-)
+import "fmt"
 
 // RetainCallback appends cb to the slice to prevent Go GC from collecting
 // callbacks that GTK still references via C pointers.
 func RetainCallback(callbacks *[]interface{}, cb interface{}) {
 	*callbacks = append(*callbacks, cb)
-}
-
-// IdleAddOnce schedules fn to run once on the GTK main thread.
-func IdleAddOnce(fn func()) {
-	onceFn := glib.SourceOnceFunc(func(uintptr) { fn() })
-	glib.IdleAddOnce(&onceFn, 0)
 }
 
 // SafeNewWidget creates a widget and returns an error if the constructor returns nil.
