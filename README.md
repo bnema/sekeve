@@ -50,6 +50,8 @@ docker compose run -it sekeve-server server init --data /data/sekeve.db
 
 This opens an interactive prompt where you paste your armored GPG public key. The key is stored in the database; no file remains on disk.
 
+The server stores the registered public key. If PIN unlock is enabled, it also stores the PIN hash and salt. It never stores the plaintext PIN.
+
 You can also provide the key non-interactively:
 
 ```bash
@@ -168,16 +170,18 @@ Delete the export file after import - it contains plaintext credentials.
 
 ## PIN unlock
 
-Add a second factor to the GPG challenge-response flow. Once set, every new session requires a 4-6 digit PIN before secrets are accessible.
+PIN unlock adds a second step to the GPG challenge-response flow. The client asks for a PIN only when the server requires one.
+
+`sekeve` reuses a cached session token first. If none exists, it authenticates with GPG. If the server still requires a PIN, it prompts in the TTY or in the GTK overlay when no TTY is available.
+
+The server stores the PIN as an argon2id hash and salt, requires the current PIN to change it, issues one-time unlock tickets, backs off after failed attempts, and invalidates all sessions when the PIN changes.
 
 ```bash
-sekeve pin set       # first-time setup
-sekeve pin change    # change (requires current PIN)
+sekeve pin set       # first-time setup; 4-6 digits
+sekeve pin change    # change an existing PIN
 ```
 
-The PIN is hashed server-side with argon2id. It cannot be removed once set. Failed attempts trigger exponential backoff (2s up to 60s).
-
-In a terminal, the PIN is prompted interactively. When launched from a hotkey with no TTY (e.g., niri/sway keybinding), a GTK4 overlay prompt appears automatically via layer-shell.
+In a terminal, the PIN is prompted interactively. When launched from a hotkey with no TTY (for example, a niri or sway keybinding), a GTK4 overlay prompt appears automatically via layer-shell.
 
 For the dmenu workflow, use `--ensure-session` so the PIN prompt appears before fuzzel:
 
@@ -189,7 +193,7 @@ Without `--ensure-session`, fuzzel opens simultaneously with the PIN prompt and 
 
 ## Auth
 
-Authentication uses GPG challenge-response. The server encrypts a nonce with your public key; the client decrypts it to prove identity. No passwords. Session tokens are cached locally for one hour.
+GPG challenge-response establishes the session: the server encrypts a nonce with your public key, and the client decrypts it to prove identity. The client caches the session token locally for one hour.
 
 ## Development
 
