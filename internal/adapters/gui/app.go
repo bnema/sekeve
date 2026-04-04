@@ -29,6 +29,12 @@ type GUIAdapter struct {
 	isTTY        bool
 	guiAvailable bool
 
+	// pendingPIN holds a PIN validation function when the vault is locked.
+	// When set, ShowOmnibox shows the PIN prompt first, then transitions to
+	// the omnibox within the same GTK application, avoiding layer-shell
+	// keyboard focus issues from running two separate GTK apps sequentially.
+	pendingPIN port.PINValidateFunc
+
 	// State cache for omnibox persistence (5 min TTL).
 	mu         sync.Mutex
 	lastState  *omniboxState
@@ -78,6 +84,11 @@ func (a *GUIAdapter) PromptForPIN(ctx context.Context, validate port.PINValidate
 		return pin.PromptTTY(ctx, validate)
 	}
 	return port.ErrNoPINInputMethod
+}
+
+// SetPendingPIN stores a PIN validation function for the next ShowOmnibox call.
+func (a *GUIAdapter) SetPendingPIN(validate port.PINValidateFunc) {
+	a.pendingPIN = validate
 }
 
 func (a *GUIAdapter) ShowOmnibox(ctx context.Context, cfg port.OmniboxConfig) error {
@@ -133,22 +144,6 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 
 		quitFn := func() { app.Quit() }
 
-		ob = omnibox.New(ctx, cfg, quitFn)
-
-		// Center the omnibox inside the full-screen layer-shell surface.
-		centerBox := gtk.NewBox(gtk.OrientationVerticalValue, 0)
-		centerBox.SetHalign(gtk.AlignCenterValue)
-		centerBox.SetValign(gtk.AlignCenterValue)
-		centerBox.Append(&ob.Root.Widget)
-		window.SetChild(&centerBox.Widget)
-
-		ob.AttachKeyController(&window.Window)
-
-		// Restore cached state if available.
-		if cached != nil {
-			ob.RestoreState(int(cached.Mode), cached.Category, cached.Query)
-		}
-
 		closeRequestCb := func(_ gtk.Window) bool {
 			app.Quit()
 			return true
@@ -156,8 +151,42 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 		gtkutil.RetainCallback(&callbacks, closeRequestCb)
 		window.ConnectCloseRequest(&closeRequestCb)
 
-		window.Show()
-		ob.GrabFocus()
+		if a.pendingPIN != nil {
+			validate := a.pendingPIN
+			a.pendingPIN = nil
+
+			pinPane := pin.PINPane(ctx, validate, func() {
+				// onSuccess: replace window content with omnibox.
+				ob = transitionToOmnibox(ctx, cfg, window, quitFn, cached, &callbacks)
+			}, func() {
+				// onCancel: quit the app.
+				app.Quit()
+			})
+
+			centerBox := gtk.NewBox(gtk.OrientationVerticalValue, 0)
+			centerBox.SetHalign(gtk.AlignCenterValue)
+			centerBox.SetValign(gtk.AlignCenterValue)
+			centerBox.Append(&pinPane.Widget)
+			window.SetChild(&centerBox.Widget)
+
+			keyCtrl := gtk.NewEventControllerKey()
+			keyPressedCb := func(_ gtk.EventControllerKey, keyval uint, _ uint, _ gdk.ModifierType) bool {
+				if keyval == uint(gdk.KEY_Escape) {
+					app.Quit()
+					return true
+				}
+				return false
+			}
+			gtkutil.RetainCallback(&callbacks, keyPressedCb)
+			keyCtrl.ConnectKeyPressed(&keyPressedCb)
+			window.AddController(&keyCtrl.EventController)
+
+			window.Show()
+			pinPane.GrabFocusChild()
+		} else {
+			ob = transitionToOmnibox(ctx, cfg, window, quitFn, cached, &callbacks)
+			window.Show()
+		}
 	}
 	gtkutil.RetainCallback(&callbacks, activateCb)
 	app.ConnectActivate(&activateCb)
@@ -195,6 +224,34 @@ func (a *GUIAdapter) showOmniboxGUI(ctx context.Context, cfg port.OmniboxConfig)
 		return ctx.Err()
 	}
 	return nil
+}
+
+// transitionToOmnibox replaces the window content with the omnibox UI and
+// returns the new Omnibox instance. Safe to call from the GTK thread.
+func transitionToOmnibox(
+	ctx context.Context,
+	cfg port.OmniboxConfig,
+	window *gtk.ApplicationWindow,
+	quitFn func(),
+	cached *omniboxState,
+	callbacks *[]interface{},
+) *omnibox.Omnibox {
+	ob := omnibox.New(ctx, cfg, quitFn)
+
+	centerBox := gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	centerBox.SetHalign(gtk.AlignCenterValue)
+	centerBox.SetValign(gtk.AlignCenterValue)
+	centerBox.Append(&ob.Root.Widget)
+	window.SetChild(&centerBox.Widget)
+
+	ob.AttachKeyController(&window.Window)
+
+	if cached != nil {
+		ob.RestoreState(int(cached.Mode), cached.Category, cached.Query)
+	}
+
+	ob.GrabFocus()
+	return ob
 }
 
 func setupCSS() {

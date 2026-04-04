@@ -28,8 +28,11 @@ Bind this to a keyboard shortcut (e.g. Ctrl+Super+P) in your compositor.`,
 
 			cfg := cliconfig.ConfigFromCmd(cmd)
 
-			// Connect and authenticate (shows PIN prompt if needed).
-			clientApp, err := cliconfig.ConnectAndAuth(ctx, cfg)
+			// Connect and authenticate. When PIN is required, defer the prompt
+			// to ShowOmnibox so both PIN and omnibox run in a single GTK
+			// application, avoiding layer-shell keyboard focus issues.
+			guiPort := cliconfig.GUIFromCtx(ctx)
+			clientApp, err := cliconfig.ConnectAndAuthDeferPIN(ctx, cfg, guiPort)
 			if err != nil {
 				log.Error().Err(err).Msg("connect/auth failed")
 				_ = styles.RenderError(os.Stderr, err)
@@ -42,7 +45,6 @@ Bind this to a keyboard shortcut (e.g. Ctrl+Super+P) in your compositor.`,
 			}()
 
 			// Show omnibox (defaults to Search / All).
-			guiPort := cliconfig.GUIFromCtx(ctx)
 			notifier := cliconfig.NotifyFromCtx(ctx)
 			omniCfg := port.OmniboxConfig{
 				Mode:          port.OmniboxModeSearch,

@@ -112,6 +112,97 @@ func ReadPassword(prompt string) (string, error) {
 	return string(b), nil
 }
 
+// ConnectAndAuthDeferPIN is like ConnectAndAuth but, when PIN is required,
+// it stores the validate function on the GUI adapter via SetPendingPIN instead
+// of immediately prompting. The PIN will be validated inside ShowOmnibox.
+// Use this for the omnibox command to keep both prompts in one GTK application.
+func ConnectAndAuthDeferPIN(ctx context.Context, cfg port.ConfigPort, gui port.GUIPort) (*app.ClientApp, error) {
+	log := zerowrap.FromCtx(ctx)
+
+	if cfg.IsUnconfigured() {
+		return nil, fmt.Errorf("client not configured; run 'sekeve init' first")
+	}
+
+	clientApp, err := app.NewClientApp(ctx, cfg)
+	if err != nil {
+		return nil, log.WrapErr(err, "failed to connect")
+	}
+
+	token, err := cfg.SessionToken(ctx)
+	if err == nil {
+		clientApp.Sync.SetToken(token)
+		return clientApp, nil
+	}
+
+	authResult, err := clientApp.Vault.Authenticate(ctx)
+	if err != nil {
+		if closeErr := clientApp.Close(ctx); closeErr != nil {
+			log.Warn().Err(closeErr).Msg("failed to close client app after auth failure")
+		}
+		return nil, log.WrapErr(err, "authentication failed")
+	}
+
+	cacheSession := func(token string, expiresAt time.Time) {
+		clientApp.Sync.SetToken(token)
+		if saveErr := cfg.SaveSessionToken(ctx, token, int64(time.Until(expiresAt).Seconds())); saveErr != nil {
+			log.Warn().Err(saveErr).Msg("failed to cache session")
+		}
+	}
+
+	if authResult.RequiresPIN {
+		var mu sync.Mutex
+		attempts := 0
+		validate := func(vctx context.Context, pin string) error {
+			var result error
+			secret.Do(func() {
+				mu.Lock()
+				defer mu.Unlock()
+
+				attempts++
+				token, expiresAt, vErr := clientApp.Sync.Unlock(vctx, authResult.UnlockTicket, pin)
+				if vErr == nil {
+					cacheSession(token, expiresAt)
+					return
+				}
+
+				st, ok := status.FromError(vErr)
+				if !ok {
+					result = &port.PINFatalError{Err: vErr}
+					return
+				}
+
+				switch st.Code() {
+				case codes.PermissionDenied:
+					if attempts >= 3 {
+						result = &port.PINFatalError{Err: fmt.Errorf("too many failed PIN attempts")}
+						return
+					}
+					result = fmt.Errorf("%s", port.DefaultPINError)
+				case codes.Unauthenticated:
+					authRes, authErr := clientApp.Vault.Authenticate(vctx)
+					if authErr != nil {
+						result = &port.PINFatalError{Err: fmt.Errorf("re-authentication failed: %w", authErr)}
+						return
+					}
+					authResult = authRes
+					attempts = 0
+					result = fmt.Errorf("Session expired, enter PIN again")
+				case codes.ResourceExhausted:
+					result = fmt.Errorf("%s", st.Message())
+				default:
+					result = &port.PINFatalError{Err: vErr}
+				}
+			})
+			return result
+		}
+		gui.SetPendingPIN(validate)
+		return clientApp, nil
+	}
+
+	cacheSession(authResult.Token, authResult.ExpiresAt)
+	return clientApp, nil
+}
+
 func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, error) {
 	log := zerowrap.FromCtx(ctx)
 

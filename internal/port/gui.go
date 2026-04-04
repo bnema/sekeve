@@ -38,4 +38,9 @@ type OmniboxConfig struct {
 type GUIPort interface {
 	PINPromptPort
 	ShowOmnibox(ctx context.Context, cfg OmniboxConfig) error
+	// SetPendingPIN stores a PIN validation function for the next ShowOmnibox
+	// call. When set, ShowOmnibox shows the PIN prompt first within the same
+	// GTK application, avoiding layer-shell focus issues from running two
+	// separate GTK apps sequentially.
+	SetPendingPIN(validate PINValidateFunc)
 }

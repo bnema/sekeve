@@ -14,3 +14,6 @@ type OverlayConfig struct {
 func InitOverlay(_ *gtk.Window, _ OverlayConfig) bool {
 	return false
 }
+
+// SetKeyboardModeExclusive is a no-op on non-Linux platforms.
+func SetKeyboardModeExclusive(_ *gtk.Window) {}

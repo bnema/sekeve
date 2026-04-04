@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"runtime"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/bnema/puregotk/v4/glib"
 	"github.com/bnema/puregotk/v4/gtk"
 	"github.com/bnema/sekeve/internal/port"
+	"github.com/bnema/sekeve/pkg/gtkutil"
 	lsh "github.com/bnema/sekeve/pkg/layershell"
 )
 
@@ -22,6 +24,132 @@ const (
 	maxMessageLen = 200
 	promptTimeout = 90 * time.Second
 )
+
+// PINBox wraps an embeddable PIN prompt widget.
+type PINBox struct {
+	*gtk.Box
+	entry     *gtk.PasswordEntry
+	callbacks []interface{}
+}
+
+// GrabFocusChild focuses the password entry inside the PIN box.
+func (p *PINBox) GrabFocusChild() {
+	if p.entry != nil {
+		p.entry.GrabFocus()
+	}
+}
+
+// PINPane builds the PIN prompt UI as a Box widget for embedding inside an
+// existing GTK application window. onSuccess is called on the GTK thread when
+// validation succeeds. onCancel is called on Escape, fatal error, or timeout.
+func PINPane(ctx context.Context, validate port.PINValidateFunc, onSuccess func(), onCancel func()) *PINBox {
+	pb := &PINBox{}
+
+	resetCh := make(chan struct{}, 1)
+	doneCh := make(chan struct{})
+	var closeOnce sync.Once
+	closeDone := func() { closeOnce.Do(func() { close(doneCh) }) }
+
+	vbox := gtk.NewBox(gtk.OrientationVerticalValue, 0)
+	vbox.AddCssClass("sekeve-pin")
+	vbox.SetMarginTop(16)
+	vbox.SetMarginBottom(16)
+	vbox.SetMarginStart(16)
+	vbox.SetMarginEnd(16)
+
+	label := gtk.NewLabel(nil)
+	label.AddCssClass("sekeve-label")
+	label.SetVisible(false)
+
+	entry := gtk.NewPasswordEntry()
+	entry.SetPropertyPlaceholderText("PIN")
+	entry.SetPropertyActivatesDefault(true)
+
+	activateEntryCb := func(gtk.PasswordEntry) {
+		text := entry.GetText()
+		if text == "" {
+			return
+		}
+
+		select {
+		case resetCh <- struct{}{}:
+		default:
+		}
+
+		entry.SetSensitive(false)
+
+		go func() {
+			err := validate(ctx, text)
+
+			if err == nil {
+				closeDone()
+				gtkutil.IdleAddOnce(onSuccess)
+				return
+			}
+
+			var fatal *port.PINFatalError
+			if errors.As(err, &fatal) {
+				closeDone()
+				gtkutil.IdleAddOnce(onCancel)
+				return
+			}
+
+			msg := err.Error()
+			if utf8.RuneCountInString(msg) > maxMessageLen {
+				msg = string([]rune(msg)[:maxMessageLen])
+			}
+			gtkutil.IdleAddOnce(func() {
+				vbox.AddCssClass("sekeve-pin-error")
+				label.SetText(msg)
+				label.SetVisible(true)
+				entry.SetText("")
+				entry.SetSensitive(true)
+				entry.GrabFocus()
+			})
+		}()
+	}
+	gtkutil.RetainCallback(&pb.callbacks, activateEntryCb)
+	entry.ConnectActivate(&activateEntryCb)
+
+	vbox.Append(&label.Widget)
+	vbox.Append(&entry.Widget)
+
+	pb.Box = vbox
+	pb.entry = entry
+
+	// Timeout goroutine: cancel after inactivity.
+	go func() {
+		timer := time.NewTimer(promptTimeout)
+		defer timer.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+			case <-timer.C:
+			case <-doneCh:
+				return
+			case <-resetCh:
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(promptTimeout)
+				continue
+			}
+			break
+		}
+		select {
+		case <-doneCh:
+			return
+		default:
+		}
+		closeDone()
+		gtkutil.IdleAddOnce(onCancel)
+	}()
+
+	return pb
+}
 
 // PromptGUI shows a GTK4 layer-shell PIN prompt.
 func PromptGUI(ctx context.Context, validate port.PINValidateFunc, css string) error {

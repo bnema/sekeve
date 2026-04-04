@@ -35,3 +35,5 @@ func (a *GUIAdapter) PromptForPIN(ctx context.Context, validate port.PINValidate
 func (a *GUIAdapter) ShowOmnibox(_ context.Context, _ port.OmniboxConfig) error {
 	return fmt.Errorf("omnibox requires Linux with GTK4 and Wayland")
 }
+
+func (a *GUIAdapter) SetPendingPIN(_ port.PINValidateFunc) {}

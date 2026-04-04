@@ -34,3 +34,15 @@ func InitOverlay(window *gtk.Window, cfg OverlayConfig) bool {
 
 	return true
 }
+
+// SetKeyboardModeExclusive re-asserts exclusive keyboard mode on a layer-shell window.
+// Useful when a previous layer-shell surface's cleanup races with the new one.
+func SetKeyboardModeExclusive(window *gtk.Window) {
+	if !layershell.Available() || !layershell.IsSupported() {
+		return
+	}
+	if !layershell.IsLayerWindow(window) {
+		return
+	}
+	layershell.SetKeyboardMode(window, layershell.KeyboardModeExclusiveValue)
+}
