@@ -19,12 +19,12 @@ import (
 func WithGUI(cmd *cobra.Command) *cobra.Command {
 	existing := cmd.PreRunE
 	cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		ensureLayerShell()
 		if existing != nil {
 			if err := existing(cmd, args); err != nil {
 				return err
 			}
 		}
-		ensureLayerShell()
 		ctx := cmd.Context()
 		guiAdapter := gui.NewGUIAdapter()
 		ctx = cliconfig.WithPINPrompt(ctx, guiAdapter)
