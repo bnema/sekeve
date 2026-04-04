@@ -150,57 +150,71 @@ func ConnectAndAuthDeferPIN(ctx context.Context, cfg port.ConfigPort, gui port.G
 	}
 
 	if authResult.RequiresPIN {
-		var mu sync.Mutex
-		attempts := 0
-		validate := func(vctx context.Context, pin string) error {
-			var result error
-			secret.Do(func() {
-				mu.Lock()
-				defer mu.Unlock()
-
-				attempts++
-				token, expiresAt, vErr := clientApp.Sync.Unlock(vctx, authResult.UnlockTicket, pin)
-				if vErr == nil {
-					cacheSession(token, expiresAt)
-					return
-				}
-
-				st, ok := status.FromError(vErr)
-				if !ok {
-					result = &port.PINFatalError{Err: vErr}
-					return
-				}
-
-				switch st.Code() {
-				case codes.PermissionDenied:
-					if attempts >= 3 {
-						result = &port.PINFatalError{Err: fmt.Errorf("too many failed PIN attempts")}
-						return
-					}
-					result = fmt.Errorf("%s", port.DefaultPINError)
-				case codes.Unauthenticated:
-					authRes, authErr := clientApp.Vault.Authenticate(vctx)
-					if authErr != nil {
-						result = &port.PINFatalError{Err: fmt.Errorf("re-authentication failed: %w", authErr)}
-						return
-					}
-					authResult = authRes
-					attempts = 0
-					result = fmt.Errorf("Session expired, enter PIN again")
-				case codes.ResourceExhausted:
-					result = fmt.Errorf("%s", st.Message())
-				default:
-					result = &port.PINFatalError{Err: vErr}
-				}
-			})
-			return result
-		}
+		validate := makeUnlockValidator(ctx, clientApp, authResult, cacheSession)
 		gui.SetPendingPIN(validate)
 		return clientApp, nil
 	}
 
 	cacheSession(authResult.Token, authResult.ExpiresAt)
 	return clientApp, nil
+}
+
+// makeUnlockValidator creates a PIN validation callback shared by
+// ConnectAndAuth and ConnectAndAuthDeferPIN.
+func makeUnlockValidator(
+	ctx context.Context,
+	clientApp *app.ClientApp,
+	authResult *port.AuthResult,
+	cacheSession func(token string, expiresAt time.Time),
+) port.PINValidateFunc {
+	var mu sync.Mutex
+	attempts := 0
+
+	return func(vctx context.Context, pin string) error {
+		var result error
+		secret.Do(func() {
+			mu.Lock()
+			defer mu.Unlock()
+
+			attempts++
+			token, expiresAt, vErr := clientApp.Sync.Unlock(vctx, authResult.UnlockTicket, pin)
+			if vErr == nil {
+				cacheSession(token, expiresAt)
+				return
+			}
+
+			st, ok := status.FromError(vErr)
+			if !ok {
+				result = &port.PINFatalError{Err: vErr}
+				return
+			}
+
+			switch st.Code() {
+			case codes.PermissionDenied:
+				if attempts >= 3 {
+					result = &port.PINFatalError{Err: fmt.Errorf("too many failed PIN attempts")}
+					return
+				}
+				// User-facing message, intentionally capitalized.
+				result = fmt.Errorf("%s", port.DefaultPINError)
+			case codes.Unauthenticated:
+				authRes, authErr := clientApp.Vault.Authenticate(vctx)
+				if authErr != nil {
+					result = &port.PINFatalError{Err: fmt.Errorf("re-authentication failed: %w", authErr)}
+					return
+				}
+				*authResult = *authRes
+				attempts = 0
+				// User-facing message, intentionally capitalized.
+				result = fmt.Errorf("Session expired, enter PIN again")
+			case codes.ResourceExhausted:
+				result = fmt.Errorf("%s", st.Message())
+			default:
+				result = &port.PINFatalError{Err: vErr}
+			}
+		})
+		return result
+	}
 }
 
 func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, error) {
@@ -243,56 +257,7 @@ func ConnectAndAuth(ctx context.Context, cfg port.ConfigPort) (*app.ClientApp, e
 		prompt := PINPromptFromCtx(ctx)
 		var unlockErr error
 
-		var mu sync.Mutex // protects attempts and authResult across goroutines
-		attempts := 0
-		validate := func(vctx context.Context, pin string) error {
-			// Wrap in secret.Do because this callback may be invoked from a
-			// goroutine spawned by the GUI adapter (GTK event loop), which
-			// is not covered by the caller's secret.Do scope.
-			var result error
-			secret.Do(func() {
-				mu.Lock()
-				defer mu.Unlock()
-
-				attempts++
-				token, expiresAt, vErr := clientApp.Sync.Unlock(vctx, authResult.UnlockTicket, pin)
-				if vErr == nil {
-					cacheSession(token, expiresAt)
-					return
-				}
-
-				st, ok := status.FromError(vErr)
-				if !ok {
-					result = &port.PINFatalError{Err: vErr}
-					return
-				}
-
-				switch st.Code() {
-				case codes.PermissionDenied:
-					if attempts >= 3 {
-						result = &port.PINFatalError{Err: fmt.Errorf("too many failed PIN attempts")}
-						return
-					}
-					// User-facing message, intentionally capitalized.
-					result = fmt.Errorf("%s", port.DefaultPINError)
-				case codes.Unauthenticated:
-					authRes, authErr := clientApp.Vault.Authenticate(vctx)
-					if authErr != nil {
-						result = &port.PINFatalError{Err: fmt.Errorf("re-authentication failed: %w", authErr)}
-						return
-					}
-					authResult = authRes
-					attempts = 0
-					// User-facing message, intentionally capitalized.
-					result = fmt.Errorf("Session expired, enter PIN again")
-				case codes.ResourceExhausted:
-					result = fmt.Errorf("%s", st.Message())
-				default:
-					result = &port.PINFatalError{Err: vErr}
-				}
-			})
-			return result
-		}
+		validate := makeUnlockValidator(ctx, clientApp, authResult, cacheSession)
 
 		unlockErr = prompt.PromptForPIN(ctx, validate)
 
